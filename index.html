@@ -170,4 +170,39 @@
       basicInfo.textContent = `Type: ${file.type} • Size: ${sizeKB} KB • Modified: ${modDate}`;
     }
 
-    function render
+    function renderFields(metadata) {
+      // GPS Map
+      if (metadata._latitude && metadata._longitude) {
+        gpsWrap.classList.remove('hidden');
+        gpsText.textContent = `Latitude: ${metadata._latitude}, Longitude: ${metadata._longitude}`;
+        gpsLink.href = `https://www.google.com/maps?q=${metadata._latitude},${metadata._longitude}`;
+        if(!map){
+          map = L.map('map').setView([metadata._latitude, metadata._longitude], 13);
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+          }).addTo(map);
+          mapMarker = L.marker([metadata._latitude, metadata._longitude]).addTo(map);
+        } else {
+          map.setView([metadata._latitude, metadata._longitude], 13);
+          mapMarker.setLatLng([metadata._latitude, metadata._longitude]);
+        }
+      } else {
+        gpsWrap.classList.add('hidden');
+      }
+
+      // Buttons
+      downloadMetaBtn.onclick = () => {
+        const blob = new Blob([JSON.stringify(metadata, null, 2)], {type:'application/json'});
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = lastFileName + '_metadata.json';
+        a.click();
+      };
+      copyMetaBtn.onclick = () => {
+        navigator.clipboard.writeText(JSON.stringify(metadata, null, 2));
+        alert('Metadata copied to clipboard');
+      };
+    }
+  </script>
+</body>
+</html>
