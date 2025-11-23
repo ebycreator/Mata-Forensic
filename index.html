@@ -1,233 +1,227 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>META FORENSIC – Digital Image Metadata Analyzer</title>
+  <meta charset="UTF-8">
+  <title>META FORENSIC</title>
 
-<!-- Tailwind CSS -->
-<script src="https://cdn.tailwindcss.com"></script>
+  <!-- TailwindCSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
 
-<!-- Leaflet Map -->
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- EXIF Reader -->
+  <script src="https://cdn.jsdelivr.net/npm/exifreader@4.12.0/dist/exif-reader.min.js"></script>
 
-<!-- EXIF Reader -->
-<script src="https://cdn.jsdelivr.net/npm/exifreader@4.12.0/dist/exif-reader.min.js"></script>
+  <!-- SHA hashing -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
 
-<!-- SheetJS - EXCEL Export -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <!-- Excel export -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.19.3/xlsx.full.min.js"></script>
 
-<!-- jsPDF - PDF Forensics Report -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <!-- PDF Generator -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
-<!-- Crypto API (Hash Calculation) built in browser -->
-<style>
-body {
-  background: #0a0f1c;
-  color: white;
-  font-family: 'Segoe UI', sans-serif;
-}
+  <!-- Leaflet Map -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-.glow-title {
-  text-shadow: 0 0 12px #0ff, 0 0 20px #0ff;
-}
+  <style>
+    /* PREMIUM FORENSIC THEME */
+    body {
+      background: radial-gradient(circle at top, #0a0f1f 0%, #000 100%);
+      color: #e5e7eb;
+      font-family: 'Inter', sans-serif;
+    }
 
-.card {
-  background: rgba(0,0,0,0.45);
-  backdrop-filter: blur(6px);
-  border: 1px solid #0ff3;
-  border-radius: 12px;
-  padding: 20px;
-}
-</style>
+    .glass-card {
+      background: rgba(15, 23, 42, 0.55);
+      border: 1px solid rgba(148, 163, 184, 0.15);
+      backdrop-filter: blur(12px);
+      box-shadow: 0 0 25px rgba(0, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 1.2rem;
+    }
+
+    .glow-text {
+      text-shadow: 0 0 12px rgba(56, 189, 248, 0.6);
+    }
+
+    .cyber-divider {
+      height: 3px;
+      width: 180px;
+      background: linear-gradient(90deg, transparent, #38bdf8, #0ea5e9, transparent);
+      margin: 12px auto;
+      border-radius: 4px;
+    }
+
+    #map { height: 220px; border-radius: 12px; margin-top: 10px; }
+  </style>
 </head>
+
 <body class="p-6">
 
 <!-- HEADER -->
-<header class="text-center mb-10">
-  <h1 class="text-5xl font-extrabold glow-title text-cyan-400 tracking-wide">
-    META FORENSIC
-  </h1>
-  <p class="text-lg text-gray-300 mt-2">
-    Digital Image Metadata • Hashing • Deepfake Detection • Chain-of-Custody • Report Generator
-  </p>
-</header>
+<nav class="navbar py-4 mb-10 text-center">
+  <h1 class="text-6xl font-extrabold text-white glow-text tracking-widest">META FORENSIC</h1>
+  <div class="cyber-divider"></div>
+  <p class="text-lg text-cyan-300 mt-3 opacity-90">Digital Image Metadata • Hashing • Forensic Reporting</p>
+</nav>
 
-<!-- Upload Section -->
-<div class="card max-w-3xl mx-auto mb-8">
-  <h2 class="text-2xl mb-4 font-bold text-cyan-300">Upload Image</h2>
-  <input id="imageInput" type="file" accept="image/*" class="w-full p-3 rounded bg-gray-900 border border-cyan-500" />
-</div>
+<div class="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-<!-- Metadata Output -->
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+  <!-- LEFT SIDE -->
+  <div>
+    <!-- Upload Card -->
+    <div class="glass-card mb-6">
+      <h2 class="text-xl text-cyan-300 font-bold mb-3">Upload Image</h2>
+      <input type="file" id="fileInput" class="bg-slate-800 p-3 rounded text-white w-full">
+    </div>
 
-  <div class="card">
-    <h2 class="text-2xl mb-3 font-bold text-cyan-300">Extracted Metadata</h2>
-    <pre id="metadata" class="text-sm whitespace-pre-wrap"></pre>
+    <!-- Preview -->
+    <div class="glass-card mb-6">
+      <h2 class="text-xl text-cyan-300 font-bold mb-3">Image Preview</h2>
+      <img id="preview" class="rounded-lg shadow-lg border border-cyan-700/40 w-full">
+    </div>
+
+    <!-- GPS -->
+    <div id="gpsCard" class="glass-card hidden">
+      <h2 class="text-xl text-cyan-300 font-bold mb-3">Location (GPS)</h2>
+      <div id="gpsText"></div>
+      <div id="map"></div>
+    </div>
   </div>
 
-  <div class="card">
-    <h2 class="text-2xl mb-3 font-bold text-cyan-300">Hash Values</h2>
-    <pre id="hashOutput" class="text-sm whitespace-pre-wrap"></pre>
+  <!-- RIGHT SIDE -->
+  <div>
+    <div class="glass-card mb-6">
+      <h2 class="text-xl text-cyan-300 font-bold mb-3">Metadata Output</h2>
+      <pre id="metadata" class="text-sm whitespace-pre-wrap"></pre>
+    </div>
+
+    <!-- Buttons -->
+    <div class="glass-card flex gap-3">
+      <button onclick="downloadExcel()" class="bg-cyan-600 px-4 py-2 rounded hover:bg-cyan-500 font-semibold">Download Excel</button>
+      <button onclick="generatePDF()" class="bg-emerald-600 px-4 py-2 rounded hover:bg-emerald-500 font-semibold">Generate PDF Report</button>
+    </div>
   </div>
 
-</div>
-
-<!-- Camera Info -->
-<div class="card mt-8">
-  <h2 class="text-2xl mb-3 font-bold text-cyan-300">Camera Information</h2>
-  <pre id="cameraInfo" class="text-sm whitespace-pre-wrap"></pre>
-</div>
-
-<!-- Date/Time -->
-<div class="card mt-8">
-  <h2 class="text-2xl mb-3 font-bold text-cyan-300">Date & Time</h2>
-  <pre id="dateInfo" class="text-sm whitespace-pre-wrap"></pre>
-</div>
-
-<!-- GPS MAP -->
-<div class="card mt-8">
-  <h2 class="text-2xl mb-3 font-bold text-cyan-300">GPS Location</h2>
-  <div id="map" style="height: 300px; border-radius: 12px;"></div>
-</div>
-
-<!-- Deepfake / Manipulation -->
-<div class="card mt-8">
-  <h2 class="text-2xl mb-4 font-bold text-red-400">AI Deepfake / Manipulation Scan</h2>
-  <p class="text-gray-300 mb-2">This is a placeholder. Connect to your ML backend.</p>
-  <button onclick="runDeepfakeScan()" class="px-4 py-2 bg-red-600 rounded hover:bg-red-700">Run Scan</button>
-  <pre id="deepfakeResult" class="mt-3 text-sm whitespace-pre-wrap"></pre>
-</div>
-
-<!-- Chain of Custody -->
-<div class="card mt-8">
-  <h2 class="text-2xl mb-4 font-bold text-yellow-300">Chain of Custody Log</h2>
-  <pre id="chainCustody" class="text-sm whitespace-pre-wrap"></pre>
-</div>
-
-<!-- Export Buttons -->
-<div class="flex justify-center gap-6 mt-10">
-  <button onclick="downloadExcel()" class="px-5 py-3 bg-cyan-600 rounded hover:bg-cyan-700">Download Excel</button>
-  <button onclick="downloadPDF()" class="px-5 py-3 bg-green-600 rounded hover:bg-green-700">Download PDF Report</button>
 </div>
 
 <script>
-// ================================
-// IMAGE UPLOAD HANDLER
-// ================================
-document.getElementById("imageInput").addEventListener("change", async function(event) {
-  const file = event.target.files[0];
-  if (!file) return;
+/* GLOBAL VARIABLES */
+let gpsMap = null;
+let lastMetadata = null;
+let lastFile = null;
 
-  // METADATA
+/* FILE SELECT EVENT */
+document.getElementById("fileInput").addEventListener("change", async function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  lastFile = file;
+
+  // Preview
+  document.getElementById("preview").src = URL.createObjectURL(file);
+
+  // Read metadata
   const arrayBuffer = await file.arrayBuffer();
   const tags = ExifReader.load(arrayBuffer);
-  document.getElementById("metadata").textContent = JSON.stringify(tags, null, 2);
+  lastMetadata = tags;
 
-  // CAMERA INFO
-  const camera = `
-Camera Make: ${tags?.Make?.description || "N/A"}
-Camera Model: ${tags?.Model?.description || "N/A"}
-Serial Number: ${tags?.BodySerialNumber?.description || "Not Available"}
-Lens: ${tags?.LensModel?.description || "N/A"}
-  `;
-  document.getElementById("cameraInfo").textContent = camera;
+  // Format and display metadata
+  document.getElementById("metadata").textContent = formatMetadata(tags, file);
 
-  // DATE INFO
-  const dateInfo = `
-Original Date: ${tags?.DateTimeOriginal?.description || "N/A"}
-Modified Date: ${tags?.ModifyDate?.description || "N/A"}
-  `;
-  document.getElementById("dateInfo").textContent = dateInfo;
+  // GPS
+  showGPS(tags);
 
-  // HASHING
-  const md5 = await digestMessage(file, "MD5");
-  const sha1 = await digestMessage(file, "SHA-1");
-  const sha256 = await digestMessage(file, "SHA-256");
-
-  document.getElementById("hashOutput").textContent = `
-MD5: ${md5}
-SHA-1: ${sha1}
-SHA-256: ${sha256}
-  `;
-
-  // GPS MAP
-  const gps = extractGps(tags);
-  if (gps) loadMap(gps.lat, gps.lng);
-
-  // Chain of Custody
-  document.getElementById("chainCustody").textContent = `
-Evidence Name: ${file.name}
-Imported By: Investigator
-Import Date: ${new Date().toLocaleString()}
-Hash (SHA-256): ${sha256}
-Status: Stored
-  `;
 });
 
-// ================================
-// HASH FUNCTION
-// ================================
-async function digestMessage(file, algorithm) {
-  const buffer = await file.arrayBuffer();
-  const hash = await crypto.subtle.digest(algorithm, buffer);
-  return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
-}
+/* PROFESSIONAL METADATA FORMATTER */
+function formatMetadata(tags, file) {
+  let out = "";
 
-// ================================
-// GPS EXTRACTOR
-// ================================
-function extractGps(tags) {
-  try {
-    const lat = tags.GPSLatitude.description;
-    const lng = tags.GPSLongitude.description;
-    return { lat, lng };
-  } catch { return null; }
-}
+  out += `--- GENERAL INFO ---
+File Name: ${file.name}
+File Size: ${(file.size / (1024 * 1024)).toFixed(2)} MB
+MIME Type: ${file.type}
 
-// ================================
-// MAP LOADER
-// ================================
-let map;
-function loadMap(lat, lng) {
-  if (!map) {
-    map = L.map("map").setView([lat, lng], 15);
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
+`;
+
+  out += `--- HASH VALUES ---
+MD5: ${CryptoJS.MD5(lastFile.name).toString()}
+SHA-1: ${CryptoJS.SHA1(lastFile.name).toString()}
+SHA-256: ${CryptoJS.SHA256(lastFile.name).toString()}
+
+`;
+
+  out += `--- CAMERA DETAILS ---
+Make: ${tags?.Make?.description || "N/A"}
+Model: ${tags?.Model?.description || "N/A"}
+Serial Number: ${tags?.BodySerialNumber?.description || "N/A"}
+
+`;
+
+  out += `--- IMAGE DETAILS ---
+Resolution: ${tags?.ExifImageWidth?.value || "?"} x ${tags?.ExifImageHeight?.value || "?"}
+Orientation: ${tags?.Orientation?.description || "N/A"}
+Color Space: ${tags?.ColorSpace?.description || "N/A"}
+
+`;
+
+  out += `--- DATE & TIME ---
+Original Date: ${tags?.DateTimeOriginal?.description || "N/A"}
+Modified Date: ${tags?.ModifyDate?.description || "N/A"}
+
+`;
+
+  if (tags.GPSLatitude && tags.GPSLongitude) {
+    out += `--- GPS ---
+Latitude: ${tags.GPSLatitude.description}
+Longitude: ${tags.GPSLongitude.description}
+`;
   }
-  L.marker([lat, lng]).addTo(map);
+
+  return out;
 }
 
-// ================================
-// DEEPFAKE PLACEHOLDER
-// ================================
-function runDeepfakeScan() {
-  document.getElementById("deepfakeResult").textContent =
-    "⚠ System: Deepfake Detection Backend Not Connected.\nUse Python ML API to integrate.";
+/* SHOW GPS ON MAP */
+function showGPS(tags) {
+  if (!tags.GPSLatitude || !tags.GPSLongitude) {
+    document.getElementById("gpsCard").classList.add("hidden");
+    return;
+  }
+
+  const lat = tags.GPSLatitude.description;
+  const lon = tags.GPSLongitude.description;
+
+  document.getElementById("gpsText").innerHTML = `Latitude: ${lat}<br>Longitude: ${lon}`;
+  document.getElementById("gpsCard").classList.remove("hidden");
+
+  if (!gpsMap) {
+    gpsMap = L.map('map').setView([lat, lon], 15);
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(gpsMap);
+  }
+
+  L.marker([lat, lon]).addTo(gpsMap);
 }
 
-// ================================
-// EXCEL EXPORT
-// ================================
+/* DOWNLOAD EXCEL FILE */
 function downloadExcel() {
-  const data = [{ Metadata: document.getElementById("metadata").textContent }];
-  const ws = XLSX.utils.json_to_sheet(data);
+  const meta = document.getElementById("metadata").textContent;
+  const sheet = XLSX.utils.aoa_to_sheet(meta.split("\n").map(line => [line]));
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Metadata");
-  XLSX.writeFile(wb, "Metadata_Forensic_Report.xlsx");
+  XLSX.utils.book_append_sheet(wb, sheet, "Metadata");
+  XLSX.writeFile(wb, "metadata.xlsx");
 }
 
-// ================================
-// PDF EXPORT
-// ================================
-function downloadPDF() {
+/* PDF FORENSIC REPORT */
+function generatePDF() {
   const { jsPDF } = window.jspdf;
-  const pdf = new jsPDF();
-  pdf.text("META FORENSIC - PDF Report", 20, 20);
-  pdf.text("Metadata:", 20, 40);
-  pdf.text(document.getElementById("metadata").textContent, 20, 50);
-  pdf.save("Forensic_Report.pdf");
+  const doc = new jsPDF();
+
+  doc.setFont("courier", "normal");
+
+  doc.text("META FORENSIC REPORT", 10, 10);
+  doc.text(document.getElementById("metadata").textContent, 10, 20);
+
+  doc.save("forensic_report.pdf");
 }
 </script>
 
