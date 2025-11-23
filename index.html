@@ -84,6 +84,14 @@
   </div>
 
   <script>
+    // Convert file to MD5 / SHA1 / SHA256 hash
+async function generateHash(file, algorithm) {
+  const arrayBuffer = await file.arrayBuffer();
+  const hashBuffer = await crypto.subtle.digest(algorithm, arrayBuffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
     const drop = document.getElementById('drop');
     const fileInput = document.getElementById('fileInput');
     const chooseBtn = document.getElementById('chooseBtn');
@@ -125,9 +133,23 @@
       try { tags = await ExifReader.load(arrayBuffer); } catch(e){ tags = {}; }
       lastMetadata = normalizeTags(tags);
 
-      updateBasicInfo(file);
-      renderFields(lastMetadata);
-      renderMetadataCards(lastMetadata);
+     updateBasicInfo(file);
+
+// Generate all three hash values
+(async () => {
+  const md5 = await generateHash(file, "MD5").catch(() => "MD5 Not Supported");
+  const sha1 = await generateHash(file, "SHA-1");
+  const sha256 = await generateHash(file, "SHA-256");
+
+  // Add hash values into metadata result
+  lastMetadata["MD5 Hash"] = md5;
+  lastMetadata["SHA-1 Hash"] = sha1;
+  lastMetadata["SHA-256 Hash"] = sha256;
+
+  // Display metadata cards including hash values
+  renderMetadataCards(lastMetadata);
+}
+
     }
 
     function readAsDataURL(file) {
