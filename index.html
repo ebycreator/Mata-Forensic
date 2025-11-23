@@ -1,20 +1,18 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Image Metadata Viewer</title>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Meta Forensic</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/exifreader/dist/exif-reader.min.js"></script>
-  <!-- Leaflet for map preview -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
     body {
       background: url('https://images.unsplash.com/photo-1581091215364-37a5681d9c8b?auto=format&fit=crop&w=1920&q=80') no-repeat center center fixed;
+      /* Digital forensic background */
+      background: url('https://images.unsplash.com/photo-1616401785984-ded538da8c10?auto=format&fit=crop&w=1920&q=80') no-repeat center center fixed;
       background-size: cover;
     }
     .dropzone { transition: background-color .15s ease; }
@@ -22,306 +20,90 @@
     #map { height: 200px; border-radius: 0.5rem; margin-top: 0.5rem; }
     .card-header { background-color: rgba(30,64,175,0.1); padding: 0.5rem 1rem; border-radius: 0.5rem 0.5rem 0 0; font-weight: 600; }
     .card { background-color: rgba(255,255,255,0.9); border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+    /* Minimal metadata card design */
+    .metadata-card {
+      background-color: rgba(255,255,255,0.95);
+      border: 1px solid rgba(0,0,0,0.1);
+      border-radius: 0.5rem;
+      padding: 0.5rem 1rem;
+      margin-bottom: 0.5rem;
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.875rem;
+    }
+    .metadata-key { font-weight: 600; color: #1e40af; }
+    .metadata-value { color: #334155; text-align: right; word-break: break-word; }
   </style>
 </head>
-<body class="bg-gray-50 text-slate-900 min-h-screen p-6">
-  <div class="max-w-5xl mx-auto">
-    <header class="mb-6">
-      <h1 class="text-3xl font-semibold">Image Metadata Viewer</h1>
-      <p class="text-sm text-slate-600">Upload an image (JPEG/PNG/HEIC*) to view EXIF/IPTC metadata, preview the photo, download metadata JSON or strip metadata.</p>
-      <p class="text-xs text-slate-500 mt-1">*HEIC support depends on the browser and platform.</p>
 <body class="text-slate-900 min-h-screen p-6">
   <div class="max-w-6xl mx-auto">
     <header class="mb-6 text-center text-white">
       <h1 class="text-4xl font-bold">Meta Forensic</h1>
       <p class="text-lg mt-1">Upload a picture to view metadata</p>
+    <header class="mb-6 text-center">
+      <h1 class="text-4xl font-bold text-black">Meta Forensic</h1>
+      <p class="text-lg mt-1 text-black">Upload a picture to view metadata</p>
     </header>
 
-    <main class="grid grid-cols-1 md:grid-cols-3 gap-6">
-      <section class="md:col-span-2">
-        <div id="drop" class="dropzone p-6 border-2 border-dashed border-slate-200 rounded-lg bg-white text-center">
     <main class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <!-- Upload Section -->
-      <section>
-        <div id="drop" class="dropzone card text-center border-2 border-dashed border-slate-300">
-          <input id="fileInput" type="file" accept="image/*" class="hidden" />
-          <div id="dropInner">
-            <p class="mb-2">Drag & drop an image here, or</p>
-@@ -34,45 +39,34 @@ <h1 class="text-3xl font-semibold">Image Metadata Viewer</h1>
-          </div>
+@@ -64,8 +77,7 @@
         </div>
 
-        <div id="previewWrap" class="mt-4 hidden bg-white p-4 rounded shadow">
-        <div id="previewWrap" class="hidden card">
-          <div class="flex gap-4 items-start">
-            <img id="preview" alt="preview" class="w-48 h-48 object-contain rounded border" />
-            <div class="flex-1">
-              <h2 class="font-medium">Preview & actions</h2>
-              <p id="basicInfo" class="text-sm text-slate-600 mt-1"></p>
-
-              <div class="card-header">📷 General Info</div>
-              <p id="basicInfo" class="text-sm text-slate-700 mt-2"></p>
-              <div class="mt-3 flex gap-2">
-                <button id="downloadMetaBtn" class="px-3 py-1 rounded border">Download metadata (JSON)</button>
-                <button id="copyMetaBtn" class="px-3 py-1 rounded border">Copy metadata</button>
-                <button id="stripMetaBtn" class="px-3 py-1 rounded border">Export without metadata</button>
-                <button id="downloadMetaBtn" class="px-3 py-1 rounded border">Download JSON</button>
-                <button id="copyMetaBtn" class="px-3 py-1 rounded border">Copy Metadata</button>
-              </div>
-
-              <p class="mt-2 text-xs text-slate-500">Note: exporting via canvas strips metadata for most image formats.</p>
-            </div>
-          </div>
-        </div>
-
-        <div id="rawJsonWrap" class="mt-4 hidden bg-white p-4 rounded shadow">
-          <h3 class="font-medium mb-2">Raw metadata (parsed)</h3>
-          <pre id="rawJson" class="text-xs"></pre>
-        </div>
-      </section>
-
-      <aside class="bg-white p-4 rounded shadow">
-        <h3 class="font-medium mb-2">Quick extracted fields</h3>
-        <table class="w-full text-sm">
-          <tbody id="fieldsTable"></tbody>
-        </table>
-
-        <div id="gpsWrap" class="mt-4 hidden">
-          <h4 class="font-medium">GPS</h4>
-          <p id="gpsText" class="text-sm"></p>
-      <!-- Metadata Section -->
-      <aside>
-        <div id="gpsWrap" class="hidden card">
-          <div class="card-header">🌍 GPS & Map</div>
-          <p id="gpsText" class="text-sm text-slate-700 mt-2"></p>
-          <a id="gpsLink" target="_blank" class="text-indigo-600 text-sm underline">Open in Google Maps</a>
-          <div id="map"></div>
-        </div>
-
-        <hr class="my-3" />
-        <p class="text-xs text-slate-500">Built as a single-file demo. Customize fields or export behavior in the script.</p>
         <div id="rawJsonWrap" class="hidden card">
           <div class="card-header">🗂️ Metadata JSON</div>
           <pre id="rawJson" class="text-xs mt-2"></pre>
+          <div class="card-header">🗂️ Metadata</div>
         </div>
       </aside>
     </main>
-  </div>
-@@ -85,13 +79,11 @@ <h4 class="font-medium">GPS</h4>
+@@ -77,7 +89,6 @@
+    const chooseBtn = document.getElementById('chooseBtn');
+    const preview = document.getElementById('preview');
     const previewWrap = document.getElementById('previewWrap');
     const rawJson = document.getElementById('rawJson');
     const rawJsonWrap = document.getElementById('rawJsonWrap');
-    const fieldsTable = document.getElementById('fieldsTable');
     const gpsWrap = document.getElementById('gpsWrap');
     const gpsText = document.getElementById('gpsText');
-    const gpsLink = document.getElementById('gpsLink');
-    const downloadMetaBtn = document.getElementById('downloadMetaBtn');
-    const copyMetaBtn = document.getElementById('copyMetaBtn');
-    const stripMetaBtn = document.getElementById('stripMetaBtn');
-    const basicInfo = document.getElementById('basicInfo');
-
-    let lastMetadata = null;
-@@ -103,22 +95,14 @@ <h4 class="font-medium">GPS</h4>
-    chooseBtn.addEventListener('click', () => fileInput.click());
-    fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
-
-    ['dragenter','dragover'].forEach(evt => {
-      drop.addEventListener(evt, (ev) => { ev.preventDefault(); drop.classList.add('bg-slate-50'); });
-    });
-    ['dragleave','drop'].forEach(evt => {
-      drop.addEventListener(evt, (ev) => { ev.preventDefault(); drop.classList.remove('bg-slate-50'); });
-    });
-    drop.addEventListener('drop', (ev) => {
-      const f = ev.dataTransfer.files && ev.dataTransfer.files[0];
-      if (f) handleFiles([f]);
-    });
-    ['dragenter','dragover'].forEach(evt => drop.addEventListener(evt, (ev) => { ev.preventDefault(); drop.classList.add('bg-slate-50'); }));
-    ['dragleave','drop'].forEach(evt => drop.addEventListener(evt, (ev) => { ev.preventDefault(); drop.classList.remove('bg-slate-50'); }));
-    drop.addEventListener('drop', (ev) => { const f = ev.dataTransfer.files && ev.dataTransfer.files[0]; if (f) handleFiles([f]); });
-
-    async function handleFiles(files) {
-      if (!files || files.length === 0) return;
-      const file = files[0];
-      lastFileName = (file.name || 'image').replace(/\.[^/.]+$/, '');
-
-      const arrayBuffer = await file.arrayBuffer();
-      const dataURL = await readAsDataURL(file);
-      lastDataURL = dataURL;
-@@ -127,16 +111,12 @@ <h4 class="font-medium">GPS</h4>
-      previewWrap.classList.remove('hidden');
-
-      let tags = {};
-      try {
-        tags = await ExifReader.load(arrayBuffer);
-      } catch (err) {
-        console.warn('ExifReader failed:', err);
-        tags = {};
-      }
-
-      try { tags = await ExifReader.load(arrayBuffer); } catch(e){ tags = {}; }
-      lastMetadata = normalizeTags(tags);
-      showBasicInfo(lastMetadata, file);
+@@ -116,9 +127,7 @@
 
       updateBasicInfo(file);
       renderFields(lastMetadata);
 
       rawJson.textContent = JSON.stringify(lastMetadata, null, 2);
       rawJsonWrap.classList.remove('hidden');
-    }
-@@ -157,136 +137,37 @@ <h4 class="font-medium">GPS</h4>
-        out[k] = (t && (t.description || t.value || t.format || t.tagType)) || t;
-      }
-      try {
-        if (tags.GPSLatitude && tags.GPSLongitude) {
-        if(tags.GPSLatitude && tags.GPSLongitude){
-          const lat = toDecimal(tags.GPSLatitude.value || tags.GPSLatitude);
-          const lon = toDecimal(tags.GPSLongitude.value || tags.GPSLongitude);
-          const latRef = (tags.GPSLatitudeRef && tags.GPSLatitudeRef.value) || (tags.GPSLatitudeRef && tags.GPSLatitudeRef.description) || '';
-          const lonRef = (tags.GPSLongitudeRef && tags.GPSLongitudeRef.value) || (tags.GPSLongitudeRef && tags.GPSLongitudeRef.description) || '';
-          if (latRef === 'S' || latRef === 's') { out['_latitude'] = -Math.abs(lat); } else out['_latitude'] = lat;
-          if (lonRef === 'W' || lonRef === 'w') { out['_longitude'] = -Math.abs(lon); } else out['_longitude'] = lon;
-          const latRef = (tags.GPSLatitudeRef && tags.GPSLatitudeRef.value) || '';
-          const lonRef = (tags.GPSLongitudeRef && tags.GPSLongitudeRef.value) || '';
-          out['_latitude'] = (latRef==='S')?-Math.abs(lat):lat;
-          out['_longitude'] = (lonRef==='W')?-Math.abs(lon):lon;
-        }
-      } catch(e){}
-      return out;
+      renderMetadataCards(lastMetadata);
     }
 
-    function toDecimal(input) {
-      if (!input) return null;
-      if (typeof input === 'number') return input;
-      if (Array.isArray(input)) {
-        const [d, m, s] = input.map(n => Number(n));
-        if (isNaN(d)) return null;
-        return d + (m || 0)/60 + (s || 0)/3600;
-    function toDecimal(input){
-      if(!input) return null;
-      if(typeof input==='number') return input;
-      if(Array.isArray(input)){
-        const [d,m,s]=input.map(Number);
-        return d + (m||0)/60 + (s||0)/3600;
-      }
-      if (typeof input === 'string') {
-        const parts = input.split(',').map(p => p.trim());
-        const nums = parts.map(p => {
-          const frac = p.split('/');
-          if (frac.length === 2) return Number(frac[0]) / Number(frac[1]);
-          return Number(p);
-        });
-        if (nums.length === 1) return nums[0];
-        return nums[0] + (nums[1] || 0)/60 + (nums[2] || 0)/3600;
-      if(typeof input==='string'){
-        const parts = input.split(',').map(p=>p.trim());
-        const nums = parts.map(p=>{ const frac=p.split('/'); return frac.length===2?Number(frac[0])/Number(frac[1]):Number(p); });
-        return nums[0] + (nums[1]||0)/60 + (nums[2]||0)/3600;
-      }
-      const asNum = Number(input);
-      return isNaN(asNum) ? null : asNum;
-      const n=Number(input); return isNaN(n)?null:n;
-    }
-
-    function renderFields(meta) {
-      fieldsTable.innerHTML = '';
-      const fields = [
-        ['Camera Make', meta.Make || meta['Image Make'] || meta['maker'] ],
-        ['Camera Model', meta.Model || meta['Image Model'] ],
-        ['Date Taken', meta.DateTimeOriginal || meta.DateTime ],
-        ['Exposure', meta.ExposureTime || meta['Exposure Time'] ],
-        ['Aperture', meta.FNumber || meta.ApertureValue ],
-        ['ISO', meta.ISO || meta.ISOSpeedRatings ],
-        ['Focal Length', meta.FocalLength ],
-        ['Software', meta.Software],
-      ];
-      fields.forEach(([k,v]) => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = <td class="text-xs text-slate-600 py-1">${k}</td><td class="text-sm font-medium py-1">${v || '—'}</td>;
-        fieldsTable.appendChild(tr);
-      });
-
-      if (meta._latitude && meta._longitude) {
-        gpsWrap.classList.remove('hidden');
-        gpsText.textContent = ${meta._latitude.toFixed(6)}, ${meta._longitude.toFixed(6)};
-        gpsLink.href = https://www.google.com/maps/search/?api=1&query=${meta._latitude},${meta._longitude};
-
-        if (!map) {
-          map = L.map('map').setView([meta._latitude, meta._longitude], 13);
-          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors'
-          }).addTo(map);
-          mapMarker = L.marker([meta._latitude, meta._longitude]).addTo(map);
-        } else {
-          map.setView([meta._latitude, meta._longitude], 13);
-          if (mapMarker) map.removeLayer(mapMarker);
-          mapMarker = L.marker([meta._latitude, meta._longitude]).addTo(map);
-        }
-      } else {
-        gpsWrap.classList.add('hidden');
-      }
-    }
-
-    function showBasicInfo(meta, file) {
-    function updateBasicInfo(file){
-      const sizeKB = (file.size/1024).toFixed(1);
-      const dimText = preview.naturalWidth ? ${preview.naturalWidth}×${preview.naturalHeight}px : '';
-      basicInfo.textContent = ${file.type || 'image'} • ${sizeKB} KB ${dimText ? '• ' + dimText : ''};
-      const modDate = new Date(file.lastModified).toLocaleString();
-      basicInfo.textContent = `Type: ${file.type} • Size: ${sizeKB} KB • Modified: ${modDate}`;
-    }
-
-    downloadMetaBtn.addEventListener('click', () => {
-      if (!lastMetadata) return alert('No metadata parsed yet');
-      const blob = new Blob([JSON.stringify(lastMetadata, null, 2)], {type: 'application/json'});
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = ${lastFileName}_metadata.json;
-      document.body.appendChild(a); a.click(); a.remove();
-      URL.revokeObjectURL(url);
-    });
-
-    copyMetaBtn.addEventListener('click', async () => {
-      if (!lastMetadata) return alert('No metadata parsed yet');
-      try {
-        await navigator.clipboard.writeText(JSON.stringify(lastMetadata, null, 2));
+    function readAsDataURL(file) {
+@@ -203,6 +212,31 @@
         alert('Metadata copied to clipboard');
-      } catch (e) {
-        alert('Copy failed — your browser may block clipboard access');
-      }
-    });
-
-    stripMetaBtn.addEventListener('click', () => {
-      if (!lastDataURL) return alert('No image loaded');
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.naturalWidth;
-        canvas.height = img.naturalHeight;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0);
-        canvas.toBlob((blob) => {
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url; a.download = ${lastFileName}_nometa.jpg;
-          document.body.appendChild(a); a.click(); a.remove();
-          URL.revokeObjectURL(url);
-        }, 'image/jpeg', 0.95);
       };
-      img.src = lastDataURL;
-    });
+    }
 
-    window.addEventListener('paste', (ev) => {
-      const items = ev.clipboardData && ev.clipboardData.items;
-      if (!items) return;
-      for (const it of items) {
-        if (it.type && it.type.startsWith('image')) {
-          const f = it.getAsFile();
-          if (f) handleFiles([f]);
-          break;
-        }
+    function renderMetadataCards(metadata) {
+      rawJsonWrap.innerHTML = '<div class="card-header">🗂️ Metadata</div>'; // Clear previous content
+      rawJsonWrap.classList.remove('hidden');
+
+      for (const key in metadata) {
+        if (!metadata.hasOwnProperty(key)) continue;
+        const value = metadata[key];
+
+        const card = document.createElement('div');
+        card.className = 'metadata-card';
+
+        const k = document.createElement('div');
+        k.className = 'metadata-key';
+        k.textContent = key;
+
+        const v = document.createElement('div');
+        v.className = 'metadata-value';
+        v.textContent = String(value);
+
+        card.appendChild(k);
+        card.appendChild(v);
+        rawJsonWrap.appendChild(card);
       }
-    });
+    }
   </script>
 </body>
 </html>
-    function render
