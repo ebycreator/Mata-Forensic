@@ -4,24 +4,78 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Meta Forensic</title>
+
+  <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- EXIF Reader -->
   <script src="https://cdn.jsdelivr.net/npm/exifreader/dist/exif-reader.min.js"></script>
+
+  <!-- Leaflet -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- CryptoJS for MD5 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+
+  <!-- SheetJS for Excel export -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+  <!-- jsPDF + html2canvas for PDF -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+
   <style>
+    /* Keep your original background + card styling and add sidebar layout */
     body {
-      /* Digital forensic background */
       background: url('https://images.unsplash.com/photo-1616401785984-ded538da8c10?auto=format&fit=crop&w=1920&q=80') no-repeat center center fixed;
       background-size: cover;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
     }
-    .dropzone { transition: background-color .15s ease; }
-    #map { height: 200px; border-radius: 0.5rem; margin-top: 0.5rem; }
-    .card-header { background-color: rgba(30,64,175,0.1); padding: 0.5rem 1rem; border-radius: 0.5rem 0.5rem 0 0; font-weight: 600; }
-    .card { background-color: rgba(255,255,255,0.9); border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-    /* Minimal metadata card design */
-    .metadata-card {
+
+    /* layout */
+    .app {
+      display: grid;
+      grid-template-columns: 220px 1fr;
+      gap: 24px;
+      max-width: 1200px;
+      margin: 28px auto;
+      padding: 12px;
+    }
+
+    .sidebar {
       background-color: rgba(255,255,255,0.95);
-      border: 1px solid rgba(0,0,0,0.1);
+      border-radius: 0.5rem;
+      padding: 12px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.08);
+      height: calc(100vh - 80px);
+      overflow:auto;
+    }
+
+    .content {
+      /* content cards will be placed here */
+    }
+
+    .menu-item {
+      display:flex;
+      align-items:center;
+      gap:10px;
+      padding:10px;
+      border-radius:8px;
+      cursor:pointer;
+      color:#0f172a;
+      font-weight:600;
+    }
+    .menu-item:hover { background: rgba(14,165,233,0.08); }
+    .menu-item.active { background: rgba(14,165,233,0.18); box-shadow: inset 0 0 0 1px rgba(14,165,233,0.08); }
+
+    .card-header { background-color: rgba(30,64,175,0.06); padding: 0.5rem 1rem; border-radius: 0.5rem 0.5rem 0 0; font-weight: 600; }
+    .card { background-color: rgba(255,255,255,0.95); border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem; box-shadow: 0 4px 6px rgba(0,0,0,0.08); }
+
+    /* metadata card design */
+    .metadata-card {
+      background-color: rgba(255,255,255,0.98);
+      border: 1px solid rgba(0,0,0,0.06);
       border-radius: 0.5rem;
       padding: 0.5rem 1rem;
       margin-bottom: 0.5rem;
@@ -31,106 +85,379 @@
     }
     .metadata-key { font-weight: 600; color: #1e40af; }
     .metadata-value { color: #334155; text-align: right; word-break: break-word; }
+
+    /* small helpers */
+    .muted { color: #475569; font-size: 0.9rem; }
+    .controls { display:flex; gap:8px; flex-wrap:wrap; }
+    #map { height: 200px; border-radius: 0.5rem; margin-top: 0.5rem; }
+    pre { max-height: 28rem; overflow: auto; white-space: pre-wrap; word-break: break-word; }
+    .btn { padding: 8px 10px; border-radius: 6px; cursor: pointer; border: none; font-weight: 600; }
+    .btn-primary { background:#0ea5e9; color:#021024; }
+    .btn-ghost { background:transparent; border: 1px solid #cbd5e1; color:#0f172a; }
+    .small { font-size:0.9rem; }
+    @media (max-width: 900px) {
+      .app { grid-template-columns: 1fr; padding: 8px; }
+      .sidebar { height:auto; display:flex; gap:8px; overflow:auto; }
+      .menu-item { white-space:nowrap; }
+    }
   </style>
 </head>
-<body class="text-slate-900 min-h-screen p-6">
-  <div class="max-w-6xl mx-auto">
-    <header class="mb-6 text-center">
-      <h1 class="text-4xl font-bold text-black">Meta Forensic</h1>
-      <p class="text-lg mt-1 text-black">Upload a picture to view metadata</p>
-    </header>
 
-    <main class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <!-- Upload Section -->
-      <section>
-        <div id="drop" class="dropzone card text-center border-2 border-dashed border-slate-300">
-          <input id="fileInput" type="file" accept="image/*" class="hidden" />
-          <div id="dropInner">
-            <p class="mb-2">Drag & drop an image here, or</p>
-            <button id="chooseBtn" class="px-4 py-2 rounded bg-indigo-600 text-white">Choose file</button>
-            <p class="mt-3 text-xs text-slate-500">Supports JPEG (EXIF), PNG (limited metadata), HEIC (browser dependent).</p>
-          </div>
-        </div>
+<body>
+  <div class="app">
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <h2 class="text-xl font-bold mb-3">Meta Forensic</h2>
+      <div id="menuMetadata" class="menu-item active" data-panel="metadata">
+        <span>📷</span>
+        <span>Metadata</span>
+      </div>
+      <div id="menuCase" class="menu-item" data-panel="cases">
+        <span>🗂️</span>
+        <span>Case Management</span>
+      </div>
+      <div id="menuCoc" class="menu-item" data-panel="coc">
+        <span>🔁</span>
+        <span>Chain-of-Custody</span>
+      </div>
+      <div id="menuManip" class="menu-item" data-panel="manip">
+        <span>🧪</span>
+        <span>Manipulation Report</span>
+      </div>
 
-        <div id="previewWrap" class="hidden card">
-          <div class="flex gap-4 items-start">
-            <img id="preview" alt="preview" class="w-48 h-48 object-contain rounded border" />
-            <div class="flex-1">
-              <div class="card-header">📷 General Info</div>
-              <p id="basicInfo" class="text-sm text-slate-700 mt-2"></p>
-              <div class="mt-3 flex gap-2">
-                <button id="downloadMetaBtn" class="px-3 py-1 rounded border">Download JSON</button>
-                <button id="copyMetaBtn" class="px-3 py-1 rounded border">Copy Metadata</button>
+      <hr class="my-3" />
+      <div class="muted small">Tips</div>
+      <ul class="muted small mt-2">
+        <li>Upload JPEG for full EXIF</li>
+        <li>Use "Create Case" before import to auto-log CoC</li>
+        <li>Export JSON/Excel/PDF for court record</li>
+      </ul>
+    </aside>
+
+    <!-- CONTENT -->
+    <main class="content">
+      <!-- METADATA PANEL -->
+      <section id="panel-metadata" class="card">
+        <div class="card-header">📁 Metadata Viewer</div>
+
+        <div class="mt-3 grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div>
+            <!-- Drop zone & preview -->
+            <div id="drop" class="dropzone card text-center border-2 border-dashed border-slate-300">
+              <input id="fileInput" type="file" accept="image/*" class="hidden" />
+              <div id="dropInner">
+                <p class="mb-2">Drag & drop an image here, or</p>
+                <button id="chooseBtn" class="px-4 py-2 rounded bg-indigo-600 text-white">Choose file</button>
+                <p class="mt-3 text-xs muted">Supports JPEG (EXIF), PNG (limited), HEIC (browser dependent)</p>
               </div>
+            </div>
+
+            <div id="previewWrap" class="hidden card mt-3">
+              <div class="flex gap-4 items-start">
+                <img id="preview" alt="preview" class="w-48 h-48 object-contain rounded border" />
+                <div class="flex-1">
+                  <div class="card-header">📷 General Info</div>
+                  <p id="basicInfo" class="text-sm muted mt-2"></p>
+                  <div class="mt-3 controls">
+                    <button id="downloadMetaBtn" class="btn btn-ghost">Download JSON</button>
+                    <button id="copyMetaBtn" class="btn btn-ghost">Copy Metadata</button>
+                    <button id="downloadExcelBtn" class="btn btn-primary">Download Excel</button>
+                    <button id="generatePdfBtn" class="btn btn-primary">Generate PDF</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <!-- GPS card -->
+            <div id="gpsWrap" class="hidden card">
+              <div class="card-header">🌍 GPS & Map</div>
+              <p id="gpsText" class="text-sm muted mt-2"></p>
+              <a id="gpsLink" target="_blank" class="text-indigo-600 text-sm underline">Open in Google Maps</a>
+              <div id="map"></div>
+            </div>
+
+            <!-- Metadata list / cards -->
+            <div id="rawJsonWrap" class="hidden card mt-3">
+              <div class="card-header">🗂️ Metadata</div>
+              <div id="metadataCards" class="mt-3"></div>
             </div>
           </div>
         </div>
       </section>
 
-      <!-- Metadata Section -->
-      <aside>
-        <div id="gpsWrap" class="hidden card">
-          <div class="card-header">🌍 GPS & Map</div>
-          <p id="gpsText" class="text-sm text-slate-700 mt-2"></p>
-          <a id="gpsLink" target="_blank" class="text-indigo-600 text-sm underline">Open in Google Maps</a>
-          <div id="map"></div>
-        </div>
+      <!-- CASE MANAGEMENT PANEL -->
+      <section id="panel-cases" class="card hidden">
+        <div class="card-header">🗄️ Case Management</div>
 
-        <div id="rawJsonWrap" class="hidden card">
-          <div class="card-header">🗂️ Metadata</div>
+        <div class="mt-3 grid grid-cols-1 gap-3">
+          <input id="caseTitle" placeholder="Case title / short description" class="p-2 border rounded" />
+          <input id="caseInvestigator" placeholder="Investigator name" class="p-2 border rounded" />
+          <div class="flex gap-2">
+            <button id="createCaseBtn" class="btn btn-primary">Create Case</button>
+            <button id="clearCasesBtn" class="btn btn-ghost">Clear All Cases</button>
+          </div>
+
+          <label class="muted">Select Case</label>
+          <select id="caseSelect" class="p-2 border rounded"></select>
+
+          <div id="caseDetails" class="mt-2 muted"></div>
         </div>
-      </aside>
+      </section>
+
+      <!-- CHAIN-OF-CUSTODY PANEL -->
+      <section id="panel-coc" class="card hidden">
+        <div class="card-header">🔒 Chain-of-Custody</div>
+
+        <div class="mt-3 grid grid-cols-1 gap-3">
+          <label class="muted">Actor (auto-filled from case)</label>
+          <input id="cocActor" class="p-2 border rounded" placeholder="Actor name" />
+
+          <label class="muted">Action</label>
+          <select id="cocAction" class="p-2 border rounded">
+            <option>Collected</option>
+            <option>Received</option>
+            <option>Transferred</option>
+            <option>Analyzed</option>
+            <option>Stored</option>
+            <option>Returned</option>
+            <option>Other</option>
+          </select>
+
+          <input id="cocNote" class="p-2 border rounded" placeholder="Optional note" />
+
+          <div class="flex gap-2">
+            <button id="addCocBtn" class="btn btn-primary">Add Entry</button>
+            <button id="autoFillImportBtn" class="btn btn-ghost">Auto-fill Import (ON)</button>
+          </div>
+
+          <div class="mt-2 muted">CoC Log</div>
+          <div id="cocLog" class="p-2 border rounded max-h-48 overflow-auto bg-white"></div>
+
+          <div class="flex gap-2 mt-2">
+            <button id="exportCocBtn" class="btn btn-primary">Export CoC JSON</button>
+            <button id="clearCocBtn" class="btn btn-ghost">Clear CoC</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- MANIPULATION REPORT PANEL -->
+      <section id="panel-manip" class="card hidden">
+        <div class="card-header">🧾 Manipulation Report</div>
+
+        <div class="mt-3 grid grid-cols-1 gap-3">
+          <div id="hashesCard" class="p-3 border rounded bg-white">
+            <div class="small"><strong>MD5</strong>: <span id="md5Val">-</span></div>
+            <div class="small"><strong>SHA-1</strong>: <span id="sha1Val">-</span></div>
+            <div class="small"><strong>SHA-256</strong>: <span id="sha256Val">-</span></div>
+            <div class="mt-2 small muted">Click <em>Download JSON</em> or <em>Download Excel</em> in Metadata panel to export combined info.</div>
+          </div>
+
+          <div id="editAppsCard" class="p-3 border rounded bg-white">
+            <div class="small"><strong>Detected Editing / Processing Apps</strong></div>
+            <div id="editApps" class="mt-2 muted">—</div>
+          </div>
+
+          <div id="manipNotesCard" class="p-3 border rounded bg-white">
+            <div class="small"><strong>Heuristic Notes</strong></div>
+            <div id="manipNotes" class="mt-2 muted">—</div>
+          </div>
+
+          <div class="flex gap-2">
+            <button id="downloadAllJsonBtn" class="btn btn-primary">Download Full JSON (metadata + case + CoC)</button>
+            <button id="downloadReportPdfBtn" class="btn btn-primary">Download Forensic PDF</button>
+          </div>
+        </div>
+      </section>
     </main>
   </div>
 
   <script>
+    /************************************************************************
+     * App state
+     ************************************************************************/
+    const CASES_KEY = 'mf_cases_v3';
+    let cases = loadCases();
+    let selectedCaseId = null;
+    let currentFile = null;
+    let currentMetadata = null;
+    let gpsMap = null;
+    let gpsMarker = null;
+    let lastHashes = { md5: null, sha1: null, sha256: null };
+    let autoFillImport = true;
+
+    /************************************************************************
+     * DOM refs + menu handling
+     ************************************************************************/
+    const menuItems = document.querySelectorAll('.menu-item');
+    menuItems.forEach(mi => mi.addEventListener('click', () => {
+      menuItems.forEach(m => m.classList.remove('active'));
+      mi.classList.add('active');
+      const panel = mi.dataset.panel;
+      document.querySelectorAll('main .card, main section').forEach(s => {
+        // show panels by id prefix "panel-"
+        const id = s.id;
+        if(!id) return;
+        if(id === 'panel-' + panel) s.classList.remove('hidden'); else s.classList.add('hidden');
+      });
+      // also ensure metadata panel visible when menuMetadata clicked (covers case when panels used)
+      if(panel === 'metadata') {
+        document.getElementById('panel-metadata').classList.remove('hidden');
+      }
+    }));
+
+    // show metadata by default
+    document.getElementById('panel-metadata').classList.remove('hidden');
+
+    /************************************************************************
+     * Storage helpers
+     ************************************************************************/
+    function loadCases(){
+      try { return JSON.parse(localStorage.getItem(CASES_KEY) || '[]'); }
+      catch(e){ return []; }
+    }
+    function saveCases(){ localStorage.setItem(CASES_KEY, JSON.stringify(cases)); }
+
+    /************************************************************************
+     * Initialize case select UI
+     ************************************************************************/
+    const caseSelect = document.getElementById('caseSelect');
+    const caseDetails = document.getElementById('caseDetails');
+    function refreshCaseList(){
+      caseSelect.innerHTML = '<option value="">-- select case --</option>';
+      for(const c of cases){
+        const o = document.createElement('option');
+        o.value = c.id; o.textContent = `${c.id} — ${c.title}`;
+        caseSelect.appendChild(o);
+      }
+      renderCaseDetails();
+    }
+    function renderCaseDetails(){
+      if(!selectedCaseId){ caseDetails.innerHTML = '<div class="muted">No case selected</div>'; document.getElementById('cocLog').innerHTML='(no CoC)'; document.getElementById('cocActor').value=''; return; }
+      const c = cases.find(x => x.id === selectedCaseId);
+      if(!c) return;
+      caseDetails.innerHTML = `<div class="muted"><strong>Case</strong>: ${c.id} — ${c.title}<br><strong>Investigator</strong>: ${c.investigator || '(not set)'}</div>`;
+      // render CoC
+      const cocEl = document.getElementById('cocLog'); cocEl.innerHTML = '';
+      if(!c.coc || c.coc.length === 0) cocEl.textContent = '(no custody entries)';
+      else {
+        for(const e of c.coc){
+          const div = document.createElement('div'); div.className = 'border-b py-1';
+          div.innerHTML = `<strong>${new Date(e.time).toLocaleString()}</strong><div>${e.actor} — ${e.action}${e.note ? ' — ' + e.note : ''}</div>`;
+          cocEl.appendChild(div);
+        }
+      }
+      document.getElementById('cocActor').value = c.investigator || '';
+    }
+
+    /************************************************************************
+     * Case events
+     ************************************************************************/
+    document.getElementById('createCaseBtn').addEventListener('click', () => {
+      const title = document.getElementById('caseTitle').value.trim();
+      const investigator = document.getElementById('caseInvestigator').value.trim();
+      if(!title) return alert('Please enter a case title');
+      const id = 'CASE-' + Date.now().toString().slice(-8);
+      const newCase = { id, title, investigator, coc: [] };
+      cases.push(newCase); saveCases(); selectedCaseId = id;
+      refreshCaseList(); caseSelect.value = id; renderCaseDetails();
+      document.getElementById('caseTitle').value = ''; document.getElementById('caseInvestigator').value = '';
+    });
+    document.getElementById('clearCasesBtn').addEventListener('click', () => {
+      if(!confirm('Clear all saved cases and CoC?')) return;
+      cases = []; saveCases(); selectedCaseId = null; refreshCaseList();
+    });
+    caseSelect.addEventListener('change', () => {
+      selectedCaseId = caseSelect.value || null; renderCaseDetails();
+    });
+
+    /************************************************************************
+     * Chain-of-custody events
+     ************************************************************************/
+    function addCocEntry(actor, action, note) {
+      if(!selectedCaseId) return alert('Select a case to add CoC entries');
+      const c = cases.find(x => x.id === selectedCaseId);
+      if(!c) return;
+      const entry = { actor: actor || c.investigator || 'Unknown', action, note: note || '', time: new Date().toISOString() };
+      c.coc = c.coc || []; c.coc.push(entry); saveCases(); renderCaseDetails();
+    }
+    document.getElementById('addCocBtn').addEventListener('click', () => {
+      addCocEntry(document.getElementById('cocActor').value.trim(), document.getElementById('cocAction').value, document.getElementById('cocNote').value.trim());
+      document.getElementById('cocNote').value = '';
+    });
+    document.getElementById('exportCocBtn').addEventListener('click', () => {
+      if(!selectedCaseId) return alert('Select a case to export CoC');
+      const c = cases.find(x => x.id === selectedCaseId);
+      const blob = new Blob([JSON.stringify(c, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `CoC_${c.id}.json`; a.click(); URL.revokeObjectURL(a.href);
+    });
+    document.getElementById('clearCocBtn').addEventListener('click', () => {
+      if(!selectedCaseId) return alert('Select a case');
+      if(!confirm('Clear CoC for selected case?')) return;
+      const c = cases.find(x => x.id === selectedCaseId); c.coc = []; saveCases(); renderCaseDetails();
+    });
+
+    // quick action buttons
+    document.getElementById('actionCollect').addEventListener('click', () => addCocEntry(null, 'Collected', 'Quick action'));
+    document.getElementById('actionAnalyze').addEventListener('click', () => addCocEntry(null, 'Analyzed', 'Quick action'));
+    document.getElementById('actionTransfer').addEventListener('click', () => addCocEntry(null, 'Transferred', 'Quick action'));
+
+    // auto-fill import toggle
+    document.getElementById('autoFillImportBtn').addEventListener('click', function(){
+      autoFillImport = !autoFillImport;
+      this.textContent = autoFillImport ? 'Auto-fill Import (ON)' : 'Auto-fill Import (OFF)';
+      this.classList.toggle('btn-primary');
+    });
+
+    /************************************************************************
+     * File handling, metadata, map, cards
+     ************************************************************************/
     const drop = document.getElementById('drop');
     const fileInput = document.getElementById('fileInput');
     const chooseBtn = document.getElementById('chooseBtn');
-    const preview = document.getElementById('preview');
     const previewWrap = document.getElementById('previewWrap');
-    const rawJsonWrap = document.getElementById('rawJsonWrap');
-    const gpsWrap = document.getElementById('gpsWrap');
-    const gpsText = document.getElementById('gpsText');
-    const gpsLink = document.getElementById('gpsLink');
-    const downloadMetaBtn = document.getElementById('downloadMetaBtn');
-    const copyMetaBtn = document.getElementById('copyMetaBtn');
-    const basicInfo = document.getElementById('basicInfo');
-
-    let lastMetadata = null;
-    let lastDataURL = null;
-    let lastFileName = 'image';
-    let map = null;
-    let mapMarker = null;
+    const metadataCards = document.getElementById('metadataCards');
 
     chooseBtn.addEventListener('click', () => fileInput.click());
     fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
 
     ['dragenter','dragover'].forEach(evt => drop.addEventListener(evt, (ev) => { ev.preventDefault(); drop.classList.add('bg-slate-50'); }));
     ['dragleave','drop'].forEach(evt => drop.addEventListener(evt, (ev) => { ev.preventDefault(); drop.classList.remove('bg-slate-50'); }));
-    drop.addEventListener('drop', (ev) => { const f = ev.dataTransfer.files && ev.dataTransfer.files[0]; if (f) handleFiles([f]); });
+    drop.addEventListener('drop', (ev) => { const f = ev.dataTransfer.files && ev.dataTransfer.files[0]; if(f) handleFiles([f]); });
 
-    async function handleFiles(files) {
-      if (!files || files.length === 0) return;
-      const file = files[0];
-      lastFileName = (file.name || 'image').replace(/\.[^/.]+$/, '');
+    async function handleFiles(files){
+      if(!files || files.length === 0) return;
+      const file = files[0]; currentFile = file;
       const arrayBuffer = await file.arrayBuffer();
       const dataURL = await readAsDataURL(file);
-      lastDataURL = dataURL;
-
-      preview.src = dataURL;
+      document.getElementById('preview').src = dataURL;
       previewWrap.classList.remove('hidden');
 
+      // parse exif
       let tags = {};
-      try { tags = await ExifReader.load(arrayBuffer); } catch(e){ tags = {}; }
-      lastMetadata = normalizeTags(tags);
+      try { tags = await ExifReader.load(arrayBuffer, { expanded: true }); } catch(e){ tags = {}; console.warn('EXIF read failed', e); }
+      currentMetadata = normalizeTags(tags);
 
+      // compute hashes
+      lastHashes.md5 = await computeMD5(arrayBuffer);
+      lastHashes.sha1 = await computeSubtleHash(arrayBuffer, 'SHA-1');
+      lastHashes.sha256 = await computeSubtleHash(arrayBuffer, 'SHA-256');
+
+      // update UI
       updateBasicInfo(file);
-      renderFields(lastMetadata);
-      renderMetadataCards(lastMetadata);
+      renderFields(currentMetadata);
+      renderMetadataCards(currentMetadata);
+      renderManipulationInfo(tags, lastHashes);
+
+      // if auto fill import ON and case selected => add CoC entry for import
+      if(autoFillImport && selectedCaseId){
+        const note = `Imported ${file.name} (${(file.size/1024).toFixed(1)} KB) SHA-256: ${lastHashes.sha256}`;
+        addCocEntry(null, 'Received (Import)', note);
+      }
     }
 
-    function readAsDataURL(file) {
+    function readAsDataURL(file){
       return new Promise((res, rej) => {
         const fr = new FileReader();
         fr.onload = () => res(fr.result);
@@ -139,9 +466,9 @@
       });
     }
 
-    function normalizeTags(tags) {
+    function normalizeTags(tags){
       const out = {};
-      for (const k in tags) {
+      for(const k in tags){
         const t = tags[k];
         out[k] = (t && (t.description || t.value || t.format || t.tagType)) || t;
       }
@@ -160,83 +487,263 @@
 
     function toDecimal(input){
       if(!input) return null;
-      if(typeof input==='number') return input;
+      if(typeof input === 'number') return input;
       if(Array.isArray(input)){
-        const [d,m,s]=input.map(Number);
+        const [d,m,s] = input.map(Number);
         return d + (m||0)/60 + (s||0)/3600;
       }
-      if(typeof input==='string'){
+      if(typeof input === 'string'){
         const parts = input.split(',').map(p=>p.trim());
-        const nums = parts.map(p=>{ const frac=p.split('/'); return frac.length===2?Number(frac[0])/Number(frac[1]):Number(p); });
+        const nums = parts.map(p=>{ const frac = p.split('/'); return frac.length===2?Number(frac[0])/Number(frac[1]):Number(p); });
         return nums[0] + (nums[1]||0)/60 + (nums[2]||0)/3600;
       }
-      const n=Number(input); return isNaN(n)?null:n;
+      const n = Number(input); return isNaN(n)?null:n;
     }
 
     function updateBasicInfo(file){
       const sizeKB = (file.size/1024).toFixed(1);
       const modDate = new Date(file.lastModified).toLocaleString();
-      basicInfo.textContent = `Type: ${file.type} • Size: ${sizeKB} KB • Modified: ${modDate}`;
+      document.getElementById('basicInfo').textContent = `Type: ${file.type} • Size: ${sizeKB} KB • Modified: ${modDate}`;
     }
 
-    function renderFields(metadata) {
-      // GPS Map
-      if (metadata._latitude && metadata._longitude) {
-        gpsWrap.classList.remove('hidden');
-        gpsText.textContent = `Latitude: ${metadata._latitude}, Longitude: ${metadata._longitude}`;
-        gpsLink.href = `https://www.google.com/maps?q=${metadata._latitude},${metadata._longitude}`;
-        if(!map){
-          map = L.map('map').setView([metadata._latitude, metadata._longitude], 13);
-          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; OpenStreetMap contributors'
-          }).addTo(map);
-          mapMarker = L.marker([metadata._latitude, metadata._longitude]).addTo(map);
+    function renderFields(metadata){
+      // GPS map
+      if(metadata._latitude && metadata._longitude){
+        document.getElementById('gpsWrap').classList.remove('hidden');
+        document.getElementById('gpsText').textContent = `Latitude: ${metadata._latitude}, Longitude: ${metadata._longitude}`;
+        document.getElementById('gpsLink').href = `https://www.google.com/maps?q=${metadata._latitude},${metadata._longitude}`;
+        if(!gpsMap){
+          gpsMap = L.map('map').setView([metadata._latitude, metadata._longitude], 13);
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap contributors' }).addTo(gpsMap);
+          gpsMarker = L.marker([metadata._latitude, metadata._longitude]).addTo(gpsMap);
         } else {
-          map.setView([metadata._latitude, metadata._longitude], 13);
-          mapMarker.setLatLng([metadata._latitude, metadata._longitude]);
+          gpsMap.setView([metadata._latitude, metadata._longitude], 13);
+          gpsMarker.setLatLng([metadata._latitude, metadata._longitude]);
         }
       } else {
-        gpsWrap.classList.add('hidden');
+        document.getElementById('gpsWrap').classList.add('hidden');
       }
 
-      // Buttons
-      downloadMetaBtn.onclick = () => {
-        const blob = new Blob([JSON.stringify(metadata, null, 2)], {type:'application/json'});
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = lastFileName + '_metadata.json';
-        a.click();
+      // Download / copy handlers
+      document.getElementById('downloadMetaBtn').onclick = () => {
+        if(!currentFile || !currentMetadata) return alert('Analyze a file first.');
+        const payload = { fileName: currentFile.name, fileSize: currentFile.size, metadata: currentMetadata, caseId: selectedCaseId || null, timestamp: new Date().toISOString() };
+        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${currentFile.name.replace(/\.[^/.]+$/,'')}_metadata.json`; a.click(); URL.revokeObjectURL(a.href);
       };
-      copyMetaBtn.onclick = () => {
-        navigator.clipboard.writeText(JSON.stringify(metadata, null, 2));
+
+      document.getElementById('copyMetaBtn').onclick = () => {
+        navigator.clipboard.writeText(JSON.stringify(currentMetadata, null, 2));
         alert('Metadata copied to clipboard');
       };
+
+      document.getElementById('downloadExcelBtn').onclick = () => {
+        if(!currentFile || !currentMetadata) return alert('Analyze a file first.');
+        const rows = (document.getElementById('metadata').textContent || '').split('\n').map(r => [r]);
+        const ws = XLSX.utils.aoa_to_sheet(rows);
+        const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Metadata');
+        const fname = `${currentFile.name.replace(/\.[^/.]+$/,'')}_metadata.xlsx`;
+        XLSX.writeFile(wb, fname);
+      };
+
+      document.getElementById('generatePdfBtn').onclick = async () => {
+        if(!currentFile || !currentMetadata) return alert('Analyze a file first.');
+        const report = document.createElement('div'); report.style.width = '900px'; report.style.padding = '16px'; report.style.background = 'white'; report.style.color = 'black';
+        report.innerHTML = `<h1>META FORENSIC - Forensic Report</h1>
+          <div><strong>Case:</strong> ${selectedCaseId || '(no case selected)'}</div>
+          <div><strong>File:</strong> ${currentFile.name}</div>
+          <hr/>
+          <h3>Metadata</h3>
+          <pre style="white-space:pre-wrap;">${document.getElementById('metadata').textContent}</pre>
+          <hr/>
+          <h3>Manipulation notes</h3>
+          <div>${document.getElementById('manipNotes').textContent}</div>
+          <hr/>
+          <h3>Chain-of-Custody</h3>
+          <div style="font-size:12px;">${selectedCaseId ? (cases.find(c=>c.id===selectedCaseId).coc.map(e => `<div><strong>${new Date(e.time).toLocaleString()}</strong> — ${e.actor} — ${e.action} ${e.note?('— '+e.note):''}</div>`).join('') ) : '(no case selected)'}</div>`;
+        document.body.appendChild(report);
+        const canvas = await html2canvas(report, { scale: 2 });
+        const imgData = canvas.toDataURL('image/jpeg', 0.9);
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF({ unit: 'px', format: [canvas.width, canvas.height] });
+        pdf.addImage(imgData, 'JPEG', 0, 0, canvas.width, canvas.height);
+        pdf.save(`forensic_report_${selectedCaseId || 'report'}.pdf`);
+        document.body.removeChild(report);
+      };
     }
 
-    function renderMetadataCards(metadata) {
-      rawJsonWrap.innerHTML = '<div class="card-header">🗂️ Metadata</div>'; // Clear previous content
-      rawJsonWrap.classList.remove('hidden');
+    function renderMetadataCards(metadata){
+      const wrap = document.getElementById('metadataCards');
+      wrap.innerHTML = '';
+      document.getElementById('rawJsonWrap').classList.remove('hidden');
 
-      for (const key in metadata) {
-        if (!metadata.hasOwnProperty(key)) continue;
+      // keys sorted for nicer ordering (camera & dates first)
+      const order = ['Model','Make','BodySerialNumber','SerialNumber','DateTimeOriginal','ModifyDate','DateTime','ExifImageWidth','ExifImageHeight','GPSLatitude','GPSLongitude'];
+      const keys = Object.keys(metadata).sort((a,b) => {
+        const ai = order.indexOf(a), bi = order.indexOf(b);
+        if(ai === -1 && bi === -1) return a.localeCompare(b);
+        if(ai === -1) return 1; if(bi === -1) return -1;
+        return ai - bi;
+      });
+
+      for(const key of keys){
         const value = metadata[key];
-
-        const card = document.createElement('div');
-        card.className = 'metadata-card';
-
-        const k = document.createElement('div');
-        k.className = 'metadata-key';
-        k.textContent = key;
-
-        const v = document.createElement('div');
-        v.className = 'metadata-value';
-        v.textContent = String(value);
-
-        card.appendChild(k);
-        card.appendChild(v);
-        rawJsonWrap.appendChild(card);
+        const card = document.createElement('div'); card.className = 'metadata-card';
+        const k = document.createElement('div'); k.className = 'metadata-key'; k.textContent = key;
+        const v = document.createElement('div'); v.className = 'metadata-value'; v.textContent = String(value);
+        card.appendChild(k); card.appendChild(v);
+        wrap.appendChild(card);
       }
     }
+
+    /************************************************************************
+     * Manipulation detection heuristics & rendering
+     ************************************************************************/
+    function renderManipulationInfo(tags, hashes){
+      // show hashes
+      document.getElementById('md5Val').textContent = hashes.md5 || '-';
+      document.getElementById('sha1Val').textContent = hashes.sha1 || '-';
+      document.getElementById('sha256Val').textContent = hashes.sha256 || '-';
+
+      // detect editing apps
+      const apps = detectEditingApps(tags);
+      document.getElementById('editApps').textContent = apps.length ? apps.join(', ') : 'None detected';
+
+      // heuristic notes
+      const notes = computeManipulationNotes(tags, hashes);
+      document.getElementById('manipNotes').textContent = notes;
+      document.getElementById('manipNotes').scrollIntoView({behavior:'smooth', block:'nearest'});
+    }
+
+    function detectEditingApps(tags){
+      const keys = ['Software','ProcessingSoftware','CreatorTool','ImageHistory','ApplicationRecord','HostComputer'];
+      let raw = '';
+      for(const k of keys){
+        if(tags[k]){
+          const v = tags[k];
+          raw += (v.description ?? v.value ?? String(v)) + ' ';
+        }
+      }
+      if(!raw.trim()) return [];
+      const s = raw.toLowerCase();
+      const known = [
+        {name:'Adobe Photoshop', terms:['photoshop','adobe']},
+        {name:'Adobe Lightroom', terms:['lightroom']},
+        {name:'GIMP', terms:['gimp']},
+        {name:'Snapseed', terms:['snapseed']},
+        {name:'Instagram', terms:['instagram']},
+        {name:'Canva', terms:['canva']},
+        {name:'PicsArt', terms:['picsart']},
+        {name:'Affinity Photo', terms:['affinity']},
+        {name:'Paint.NET', terms:['paint.net','paintnet']},
+        {name:'Mobile Photos App', terms:['iphone','ios','photos','android','pixel','galaxy']},
+        {name:'Camera Manufacturer', terms:['canon','nikon','sony','fujifilm','panasonic','olympus']}
+      ];
+      const found = [];
+      for(const k of known){
+        for(const t of k.terms){ if(s.includes(t)){ found.push(k.name); break; } }
+      }
+      return Array.from(new Set(found.length ? found : [raw.trim()]));
+    }
+
+    function computeManipulationNotes(tags, hashes){
+      const notes = [];
+      const sw = tags.Software || tags.ProcessingSoftware || tags.CreatorTool;
+      if(sw) notes.push('Software/Processing tag present — inspect application listed.');
+      else notes.push('No software/processing tag found (may be stripped).');
+
+      // date checks
+      try{
+        const orig = (tags.DateTimeOriginal && (tags.DateTimeOriginal.description || tags.DateTimeOriginal.value));
+        const mod = (tags.ModifyDate && (tags.ModifyDate.description || tags.ModifyDate.value)) || (tags.DateTime && (tags.DateTime.description || tags.DateTime.value));
+        if(orig && mod){
+          const o = Date.parse(String(orig).replace(/:/g,'-'));
+          const m = Date.parse(String(mod).replace(/:/g,'-'));
+          if(!isNaN(o) && !isNaN(m)){
+            if(m > o + 60000) notes.push('ModifyDate later than DateTimeOriginal — possible edit after capture.');
+          }
+        }
+      } catch(e){}
+
+      // thumbnail presence
+      const thumb = !!(tags.JPEGThumbnail || tags.Thumbnail);
+      if(!thumb) notes.push('No embedded thumbnail present (could indicate metadata removal).');
+
+      // compression / recompression heuristics could be added later
+      notes.push(`SHA-256: ${hashes.sha256 || 'N/A'}`);
+
+      return notes.join(' ');
+    }
+
+    /************************************************************************
+     * Hash helpers (MD5 via CryptoJS, SHA via SubtleCrypto)
+     ************************************************************************/
+    async function computeSubtleHash(arrayBuffer, algo){
+      try {
+        const digest = await crypto.subtle.digest(algo, arrayBuffer);
+        return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2,'0')).join('');
+      } catch(e){ console.warn('digest error', e); return algo + '_err'; }
+    }
+    async function computeMD5(arrayBuffer){
+      try {
+        // CryptoJS WordArray from ArrayBuffer
+        const wordArray = CryptoJS.lib.WordArray.create(arrayBuffer);
+        return CryptoJS.MD5(wordArray).toString(CryptoJS.enc.Hex);
+      } catch(e){ console.warn('md5 error', e); return 'md5_err'; }
+    }
+
+    /************************************************************************
+     * Download combined JSON / PDF for manipulation panel
+     ************************************************************************/
+    document.getElementById('downloadAllJsonBtn').addEventListener('click', () => {
+      if(!currentFile || !currentMetadata) return alert('Analyze a file first.');
+      const payload = {
+        fileName: currentFile.name,
+        fileSize: currentFile.size,
+        metadata: currentMetadata,
+        hashes: lastHashes,
+        caseId: selectedCaseId || null,
+        coc: selectedCaseId ? (cases.find(c => c.id === selectedCaseId).coc || []) : [],
+        timestamp: new Date().toISOString()
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${currentFile.name.replace(/\.[^/.]+$/,'')}_full_forensic.json`; a.click(); URL.revokeObjectURL(a.href);
+    });
+
+    document.getElementById('downloadReportPdfBtn').addEventListener('click', async () => {
+      if(!currentFile || !currentMetadata) return alert('Analyze a file first.');
+      // build report DOM
+      const report = document.createElement('div'); report.style.width='900px'; report.style.padding='16px'; report.style.background='white'; report.style.color='black';
+      report.innerHTML = `<h1>META FORENSIC - Forensic Report</h1>
+        <div><strong>Case</strong>: ${selectedCaseId || '(none)'}</div>
+        <div><strong>File</strong>: ${currentFile.name}</div>
+        <hr/>
+        <h3>Metadata</h3><pre style="white-space:pre-wrap;">${document.getElementById('metadata').textContent}</pre>
+        <hr/>
+        <h3>Manipulation / Notes</h3><div>${document.getElementById('manipNotes').textContent}</div>
+        <hr/>
+        <h3>Chain-of-custody</h3>
+        <div style="font-size:12px;">${selectedCaseId ? (cases.find(c=>c.id===selectedCaseId).coc.map(e => `<div><strong>${new Date(e.time).toLocaleString()}</strong> — ${e.actor} — ${e.action} ${e.note ? '— ' + e.note : ''}</div>`).join('') ) : '(no case selected)'}</div>`;
+      document.body.appendChild(report);
+      const canvas = await html2canvas(report, { scale:2 });
+      const imgData = canvas.toDataURL('image/jpeg', 0.9);
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF({ unit:'px', format:[canvas.width, canvas.height] });
+      pdf.addImage(imgData, 'JPEG', 0, 0, canvas.width, canvas.height);
+      pdf.save(`forensic_report_${selectedCaseId || 'report'}.pdf`);
+      document.body.removeChild(report);
+    });
+
+    /************************************************************************
+     * Boot
+     ************************************************************************/
+    function init(){
+      refreshCaseList();
+      // set default menu active
+      document.getElementById('menuMetadata').classList.add('active');
+    }
+    init();
+
   </script>
 </body>
 </html>
