@@ -1,229 +1,211 @@
-<!DOCTYPE html>
+I<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>META FORENSIC</title>
-
-  <!-- TailwindCSS -->
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Meta Forensic</title>
   <script src="https://cdn.tailwindcss.com"></script>
-
-  <!-- EXIF Reader -->
-  <script src="https://cdn.jsdelivr.net/npm/exifreader@4.12.0/dist/exif-reader.min.js"></script>
-
-  <!-- SHA hashing -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
-
-  <!-- Excel export -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.19.3/xlsx.full.min.js"></script>
-
-  <!-- PDF Generator -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-
-  <!-- Leaflet Map -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <script src="https://cdn.jsdelivr.net/npm/exifreader/dist/exif-reader.min.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
   <style>
-    /* PREMIUM FORENSIC THEME */
     body {
-      background: radial-gradient(circle at top, #0a0f1f 0%, #000 100%);
-      color: #e5e7eb;
-      font-family: 'Inter', sans-serif;
+      background: url('https://images.unsplash.com/photo-1581091215364-37a5681d9c8b?auto=format&fit=crop&w=1920&q=80') no-repeat center center fixed;
+      background-size: cover;
     }
-
-    .glass-card {
-      background: rgba(15, 23, 42, 0.55);
-      border: 1px solid rgba(148, 163, 184, 0.15);
-      backdrop-filter: blur(12px);
-      box-shadow: 0 0 25px rgba(0, 255, 255, 0.08);
-      border-radius: 12px;
-      padding: 1.2rem;
-    }
-
-    .glow-text {
-      text-shadow: 0 0 12px rgba(56, 189, 248, 0.6);
-    }
-
-    .cyber-divider {
-      height: 3px;
-      width: 180px;
-      background: linear-gradient(90deg, transparent, #38bdf8, #0ea5e9, transparent);
-      margin: 12px auto;
-      border-radius: 4px;
-    }
-
-    #map { height: 220px; border-radius: 12px; margin-top: 10px; }
+    .dropzone { transition: background-color .15s ease; }
+    pre { max-height: 28rem; overflow: auto; }
+    #map { height: 200px; border-radius: 0.5rem; margin-top: 0.5rem; }
+    .card-header { background-color: rgba(30,64,175,0.1); padding: 0.5rem 1rem; border-radius: 0.5rem 0.5rem 0 0; font-weight: 600; }
+    .card { background-color: rgba(255,255,255,0.9); border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
   </style>
 </head>
+<body class="text-slate-900 min-h-screen p-6">
+  <div class="max-w-6xl mx-auto">
+    <header class="mb-6 text-center text-white">
+      <h1 class="text-4xl font-bold">Meta Forensic</h1>
+      <p class="text-lg mt-1">Upload a picture to view metadata</p>
+    </header>
 
-<body class="p-6">
+    <main class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <!-- Upload Section -->
+      <section>
+        <div id="drop" class="dropzone card text-center border-2 border-dashed border-slate-300">
+          <input id="fileInput" type="file" accept="image/*" class="hidden" />
+          <div id="dropInner">
+            <p class="mb-2">Drag & drop an image here, or</p>
+            <button id="chooseBtn" class="px-4 py-2 rounded bg-indigo-600 text-white">Choose file</button>
+            <p class="mt-3 text-xs text-slate-500">Supports JPEG (EXIF), PNG (limited metadata), HEIC (browser dependent).</p>
+          </div>
+        </div>
 
-<!-- HEADER -->
-<nav class="navbar py-4 mb-10 text-center">
-  <h1 class="text-6xl font-extrabold text-white glow-text tracking-widest">META FORENSIC</h1>
-  <div class="cyber-divider"></div>
-  <p class="text-lg text-cyan-300 mt-3 opacity-90">Digital Image Metadata • Hashing • Forensic Reporting</p>
-</nav>
+        <div id="previewWrap" class="hidden card">
+          <div class="flex gap-4 items-start">
+            <img id="preview" alt="preview" class="w-48 h-48 object-contain rounded border" />
+            <div class="flex-1">
+              <div class="card-header">📷 General Info</div>
+              <p id="basicInfo" class="text-sm text-slate-700 mt-2"></p>
+              <div class="mt-3 flex gap-2">
+                <button id="downloadMetaBtn" class="px-3 py-1 rounded border">Download JSON</button>
+                <button id="copyMetaBtn" class="px-3 py-1 rounded border">Copy Metadata</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
 
-<div class="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <!-- Metadata Section -->
+      <aside>
+        <div id="gpsWrap" class="hidden card">
+          <div class="card-header">🌍 GPS & Map</div>
+          <p id="gpsText" class="text-sm text-slate-700 mt-2"></p>
+          <a id="gpsLink" target="_blank" class="text-indigo-600 text-sm underline">Open in Google Maps</a>
+          <div id="map"></div>
+        </div>
 
-  <!-- LEFT SIDE -->
-  <div>
-    <!-- Upload Card -->
-    <div class="glass-card mb-6">
-      <h2 class="text-xl text-cyan-300 font-bold mb-3">Upload Image</h2>
-      <input type="file" id="fileInput" class="bg-slate-800 p-3 rounded text-white w-full">
-    </div>
-
-    <!-- Preview -->
-    <div class="glass-card mb-6">
-      <h2 class="text-xl text-cyan-300 font-bold mb-3">Image Preview</h2>
-      <img id="preview" class="rounded-lg shadow-lg border border-cyan-700/40 w-full">
-    </div>
-
-    <!-- GPS -->
-    <div id="gpsCard" class="glass-card hidden">
-      <h2 class="text-xl text-cyan-300 font-bold mb-3">Location (GPS)</h2>
-      <div id="gpsText"></div>
-      <div id="map"></div>
-    </div>
+        <div id="rawJsonWrap" class="hidden card">
+          <div class="card-header">🗂️ Metadata JSON</div>
+          <pre id="rawJson" class="text-xs mt-2"></pre>
+        </div>
+      </aside>
+    </main>
   </div>
 
-  <!-- RIGHT SIDE -->
-  <div>
-    <div class="glass-card mb-6">
-      <h2 class="text-xl text-cyan-300 font-bold mb-3">Metadata Output</h2>
-      <pre id="metadata" class="text-sm whitespace-pre-wrap"></pre>
-    </div>
+  <script>
+    const drop = document.getElementById('drop');
+    const fileInput = document.getElementById('fileInput');
+    const chooseBtn = document.getElementById('chooseBtn');
+    const preview = document.getElementById('preview');
+    const previewWrap = document.getElementById('previewWrap');
+    const rawJson = document.getElementById('rawJson');
+    const rawJsonWrap = document.getElementById('rawJsonWrap');
+    const gpsWrap = document.getElementById('gpsWrap');
+    const gpsText = document.getElementById('gpsText');
+    const gpsLink = document.getElementById('gpsLink');
+    const downloadMetaBtn = document.getElementById('downloadMetaBtn');
+    const copyMetaBtn = document.getElementById('copyMetaBtn');
+    const basicInfo = document.getElementById('basicInfo');
 
-    <!-- Buttons -->
-    <div class="glass-card flex gap-3">
-      <button onclick="downloadExcel()" class="bg-cyan-600 px-4 py-2 rounded hover:bg-cyan-500 font-semibold">Download Excel</button>
-      <button onclick="generatePDF()" class="bg-emerald-600 px-4 py-2 rounded hover:bg-emerald-500 font-semibold">Generate PDF Report</button>
-    </div>
-  </div>
+    let lastMetadata = null;
+    let lastDataURL = null;
+    let lastFileName = 'image';
+    let map = null;
+    let mapMarker = null;
 
-</div>
+    chooseBtn.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
 
-<script>
-/* GLOBAL VARIABLES */
-let gpsMap = null;
-let lastMetadata = null;
-let lastFile = null;
+    ['dragenter','dragover'].forEach(evt => drop.addEventListener(evt, (ev) => { ev.preventDefault(); drop.classList.add('bg-slate-50'); }));
+    ['dragleave','drop'].forEach(evt => drop.addEventListener(evt, (ev) => { ev.preventDefault(); drop.classList.remove('bg-slate-50'); }));
+    drop.addEventListener('drop', (ev) => { const f = ev.dataTransfer.files && ev.dataTransfer.files[0]; if (f) handleFiles([f]); });
 
-/* FILE SELECT EVENT */
-document.getElementById("fileInput").addEventListener("change", async function(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-  lastFile = file;
+    async function handleFiles(files) {
+      if (!files || files.length === 0) return;
+      const file = files[0];
+      lastFileName = (file.name || 'image').replace(/\.[^/.]+$/, '');
+      const arrayBuffer = await file.arrayBuffer();
+      const dataURL = await readAsDataURL(file);
+      lastDataURL = dataURL;
 
-  // Preview
-  document.getElementById("preview").src = URL.createObjectURL(file);
+      preview.src = dataURL;
+      previewWrap.classList.remove('hidden');
 
-  // Read metadata
-  const arrayBuffer = await file.arrayBuffer();
-  const tags = ExifReader.load(arrayBuffer);
-  lastMetadata = tags;
+      let tags = {};
+      try { tags = await ExifReader.load(arrayBuffer); } catch(e){ tags = {}; }
+      lastMetadata = normalizeTags(tags);
 
-  // Format and display metadata
-  document.getElementById("metadata").textContent = formatMetadata(tags, file);
+      updateBasicInfo(file);
+      renderFields(lastMetadata);
 
-  // GPS
-  showGPS(tags);
+      rawJson.textContent = JSON.stringify(lastMetadata, null, 2);
+      rawJsonWrap.classList.remove('hidden');
+    }
 
-});
+    function readAsDataURL(file) {
+      return new Promise((res, rej) => {
+        const fr = new FileReader();
+        fr.onload = () => res(fr.result);
+        fr.onerror = rej;
+        fr.readAsDataURL(file);
+      });
+    }
 
-/* PROFESSIONAL METADATA FORMATTER */
-function formatMetadata(tags, file) {
-  let out = "";
+    function normalizeTags(tags) {
+      const out = {};
+      for (const k in tags) {
+        const t = tags[k];
+        out[k] = (t && (t.description || t.value || t.format || t.tagType)) || t;
+      }
+      try {
+        if(tags.GPSLatitude && tags.GPSLongitude){
+          const lat = toDecimal(tags.GPSLatitude.value || tags.GPSLatitude);
+          const lon = toDecimal(tags.GPSLongitude.value || tags.GPSLongitude);
+          const latRef = (tags.GPSLatitudeRef && tags.GPSLatitudeRef.value) || '';
+          const lonRef = (tags.GPSLongitudeRef && tags.GPSLongitudeRef.value) || '';
+          out['_latitude'] = (latRef==='S')?-Math.abs(lat):lat;
+          out['_longitude'] = (lonRef==='W')?-Math.abs(lon):lon;
+        }
+      } catch(e){}
+      return out;
+    }
 
-  out += `--- GENERAL INFO ---
-File Name: ${file.name}
-File Size: ${(file.size / (1024 * 1024)).toFixed(2)} MB
-MIME Type: ${file.type}
+    function toDecimal(input){
+      if(!input) return null;
+      if(typeof input==='number') return input;
+      if(Array.isArray(input)){
+        const [d,m,s]=input.map(Number);
+        return d + (m||0)/60 + (s||0)/3600;
+      }
+      if(typeof input==='string'){
+        const parts = input.split(',').map(p=>p.trim());
+        const nums = parts.map(p=>{ const frac=p.split('/'); return frac.length===2?Number(frac[0])/Number(frac[1]):Number(p); });
+        return nums[0] + (nums[1]||0)/60 + (nums[2]||0)/3600;
+      }
+      const n=Number(input); return isNaN(n)?null:n;
+    }
 
-`;
+    function updateBasicInfo(file){
+      const sizeKB = (file.size/1024).toFixed(1);
+      const modDate = new Date(file.lastModified).toLocaleString();
+      basicInfo.textContent = `Type: ${file.type} • Size: ${sizeKB} KB • Modified: ${modDate}`;
+    }
 
-  out += `--- HASH VALUES ---
-MD5: ${CryptoJS.MD5(lastFile.name).toString()}
-SHA-1: ${CryptoJS.SHA1(lastFile.name).toString()}
-SHA-256: ${CryptoJS.SHA256(lastFile.name).toString()}
+    function render
+    function renderFields(metadata) {
+      // GPS Map
+      if (metadata._latitude && metadata._longitude) {
+        gpsWrap.classList.remove('hidden');
+        gpsText.textContent = `Latitude: ${metadata._latitude}, Longitude: ${metadata._longitude}`;
+        gpsLink.href = `https://www.google.com/maps?q=${metadata._latitude},${metadata._longitude}`;
+        if(!map){
+          map = L.map('map').setView([metadata._latitude, metadata._longitude], 13);
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+          }).addTo(map);
+          mapMarker = L.marker([metadata._latitude, metadata._longitude]).addTo(map);
+        } else {
+          map.setView([metadata._latitude, metadata._longitude], 13);
+          mapMarker.setLatLng([metadata._latitude, metadata._longitude]);
+        }
+      } else {
+        gpsWrap.classList.add('hidden');
+      }
 
-`;
-
-  out += `--- CAMERA DETAILS ---
-Make: ${tags?.Make?.description || "N/A"}
-Model: ${tags?.Model?.description || "N/A"}
-Serial Number: ${tags?.BodySerialNumber?.description || "N/A"}
-
-`;
-
-  out += `--- IMAGE DETAILS ---
-Resolution: ${tags?.ExifImageWidth?.value || "?"} x ${tags?.ExifImageHeight?.value || "?"}
-Orientation: ${tags?.Orientation?.description || "N/A"}
-Color Space: ${tags?.ColorSpace?.description || "N/A"}
-
-`;
-
-  out += `--- DATE & TIME ---
-Original Date: ${tags?.DateTimeOriginal?.description || "N/A"}
-Modified Date: ${tags?.ModifyDate?.description || "N/A"}
-
-`;
-
-  if (tags.GPSLatitude && tags.GPSLongitude) {
-    out += `--- GPS ---
-Latitude: ${tags.GPSLatitude.description}
-Longitude: ${tags.GPSLongitude.description}
-`;
-  }
-
-  return out;
-}
-
-/* SHOW GPS ON MAP */
-function showGPS(tags) {
-  if (!tags.GPSLatitude || !tags.GPSLongitude) {
-    document.getElementById("gpsCard").classList.add("hidden");
-    return;
-  }
-
-  const lat = tags.GPSLatitude.description;
-  const lon = tags.GPSLongitude.description;
-
-  document.getElementById("gpsText").innerHTML = `Latitude: ${lat}<br>Longitude: ${lon}`;
-  document.getElementById("gpsCard").classList.remove("hidden");
-
-  if (!gpsMap) {
-    gpsMap = L.map('map').setView([lat, lon], 15);
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(gpsMap);
-  }
-
-  L.marker([lat, lon]).addTo(gpsMap);
-}
-
-/* DOWNLOAD EXCEL FILE */
-function downloadExcel() {
-  const meta = document.getElementById("metadata").textContent;
-  const sheet = XLSX.utils.aoa_to_sheet(meta.split("\n").map(line => [line]));
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, sheet, "Metadata");
-  XLSX.writeFile(wb, "metadata.xlsx");
-}
-
-/* PDF FORENSIC REPORT */
-function generatePDF() {
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF();
-
-  doc.setFont("courier", "normal");
-
-  doc.text("META FORENSIC REPORT", 10, 10);
-  doc.text(document.getElementById("metadata").textContent, 10, 20);
-
-  doc.save("forensic_report.pdf");
-}
-</script>
-
+      // Buttons
+      downloadMetaBtn.onclick = () => {
+        const blob = new Blob([JSON.stringify(metadata, null, 2)], {type:'application/json'});
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = lastFileName + '_metadata.json';
+        a.click();
+      };
+      copyMetaBtn.onclick = () => {
+        navigator.clipboard.writeText(JSON.stringify(metadata, null, 2));
+        alert('Metadata copied to clipboard');
+      };
+    }
+  </script>
 </body>
 </html>
+
+
