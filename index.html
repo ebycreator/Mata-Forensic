@@ -26,6 +26,19 @@
   <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
 
   <style>
+    /* Professional forensic metadata styling */
+#rawJsonWrap .card {
+  background: rgba(255,255,255,0.95);
+  border: 1px solid #d3dce6;
+  border-radius: 8px;
+}
+
+#rawJsonWrap h3 {
+  color: #1e293b;
+  border-left: 4px solid #1e40af;
+  padding-left: 8px;
+}
+
     :root{
       --bg:#051022; --panel:rgba(255,255,255,0.03); --accent:#0ea5e9; --muted:#9aa6b2; --card:#071427;
       --glass: rgba(255,255,255,0.02); --text: #e6eef5;
@@ -419,10 +432,85 @@ function renderFields(metadata){
 }
 
 /* render metadata cards */
-function renderMetadataCards(metadata){
-  const wrap = document.getElementById('metadataCards');
-  wrap.innerHTML = '';
-  document.getElementById('rawJsonWrap').classList.remove('hidden');
+function renderMetadataCards(metadata) {
+  rawJsonWrap.innerHTML = `
+    <div class="card-header">🗂️ Image Metadata Report</div>
+    <p class="text-xs text-slate-500 mb-3">Automatically extracted from EXIF / XMP / IPTC when available.</p>
+  `;
+
+  // ---- GROUPING METADATA ----
+  const groups = {
+    "Core Information": [
+      "FileType", "MIMEType", "ImageWidth", "ImageHeight", "BitsPerSample"
+    ],
+    "Camera Information": [
+      "Make", "Model", "LensModel", "SerialNumber", "ExposureTime",
+      "FNumber", "ISO", "FocalLength"
+    ],
+    "Dates & Time": [
+      "DateTimeOriginal", "CreateDate", "ModifyDate", "OffsetTime",
+      "GPSDateStamp"
+    ],
+    "Geolocation": [
+      "GPSLatitude", "GPSLongitude", "GPSAltitude", "_latitude", "_longitude"
+    ],
+    "Hash Values": [
+      "SHA256", "MD5"
+    ],
+    "Software / Editing": [
+      "Software", "ProcessingSoftware", "ApplicationNotes"
+    ],
+    "Full Raw Metadata": "*"
+  };
+
+  // ---- CREATE FORENSIC CARD UI ----
+  function createCard(title) {
+    const div = document.createElement("div");
+    div.className = `
+      rounded-lg border bg-white shadow-sm mb-4 p-4
+      hover:shadow-md transition cursor-pointer
+    `;
+    div.innerHTML = `
+      <h3 class="font-semibold text-slate-800 text-lg mb-3">${title}</h3>
+    `;
+    return div;
+  }
+
+  // ---- CREATE ROW ELEMENT ----
+  function createRow(key, value) {
+    const row = document.createElement("div");
+    row.className = `
+      flex justify-between py-1 border-b border-slate-100 text-sm
+    `;
+    row.innerHTML = `
+      <span class="font-medium text-slate-700">${key}</span>
+      <span class="text-slate-600 text-right max-w-[50%] break-words">
+        ${value}
+      </span>
+    `;
+    return row;
+  }
+
+  // ---- BUILD GROUPS ----
+  for (const groupName in groups) {
+    const card = createCard(groupName);
+
+    if (groups[groupName] === "*") {
+      // Print ALL metadata
+      for (const key in metadata) {
+        card.appendChild(createRow(key, metadata[key]));
+      }
+    } else {
+      groups[groupName].forEach(k => {
+        if (metadata[k] !== undefined)
+          card.appendChild(createRow(k, metadata[k]));
+      });
+    }
+
+    rawJsonWrap.appendChild(card);
+  }
+}
+
 
   // show hashes first
   if(lastHashes.md5 || lastHashes.sha1 || lastHashes.sha256){
