@@ -1,109 +1,571 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Meta Forensic</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>META FORENSIC – Digital Image Metadata Analyzer</title>
+
+  <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/exifreader/dist/exif-reader.min.js"></script>
+
+  <!-- EXIF Reader -->
+  <script src="https://cdn.jsdelivr.net/npm/exifreader@4.12.0/dist/exif-reader.min.js"></script>
+
+  <!-- Excel Generator (SheetJS) -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+
+  <!-- Leaflet GPS Map -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- jsPDF + html2canvas for PDF generation -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+
   <style>
     body {
-      background: url('https://images.unsplash.com/photo-1581091215364-37a5681d9c8b?auto=format&fit=crop&w=1920&q=80') no-repeat center center fixed;
-      /* Digital forensic background */
       background: url('https://images.unsplash.com/photo-1616401785984-ded538da8c10?auto=format&fit=crop&w=1920&q=80') no-repeat center center fixed;
       background-size: cover;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
     }
-    .dropzone { transition: background-color .15s ease; }
-    pre { max-height: 28rem; overflow: auto; }
-    #map { height: 200px; border-radius: 0.5rem; margin-top: 0.5rem; }
-    .card-header { background-color: rgba(30,64,175,0.1); padding: 0.5rem 1rem; border-radius: 0.5rem 0.5rem 0 0; font-weight: 600; }
-    .card { background-color: rgba(255,255,255,0.9); border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-    /* Minimal metadata card design */
-    .metadata-card {
-      background-color: rgba(255,255,255,0.95);
-      border: 1px solid rgba(0,0,0,0.1);
-      border-radius: 0.5rem;
-      padding: 0.5rem 1rem;
-      margin-bottom: 0.5rem;
-      display: flex;
-      justify-content: space-between;
-      font-size: 0.875rem;
-    }
-    .metadata-key { font-weight: 600; color: #1e40af; }
-    .metadata-value { color: #334155; text-align: right; word-break: break-word; }
+    .card { background-color: rgba(255,255,255,0.95); padding: 1rem; border-radius: .5rem; }
+    #map { height: 220px; border-radius: 8px; margin-top: 6px; }
+    canvas { max-width: 100%; }
+    .small { font-size: 0.85rem; color: #334155; }
   </style>
 </head>
-<body class="text-slate-900 min-h-screen p-6">
+
+<body class="min-h-screen p-6">
   <div class="max-w-6xl mx-auto">
-    <header class="mb-6 text-center text-white">
-      <h1 class="text-4xl font-bold">Meta Forensic</h1>
-      <p class="text-lg mt-1">Upload a picture to view metadata</p>
-    <header class="mb-6 text-center">
-      <h1 class="text-4xl font-bold text-black">Meta Forensic</h1>
-      <p class="text-lg mt-1 text-black">Upload a picture to view metadata</p>
-    </header>
 
-    <main class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-@@ -64,8 +77,7 @@
+    <h1 class="text-5xl font-extrabold text-white text-center drop-shadow-lg tracking-wide mb-2">META FORENSIC</h1>
+    <p class="text-lg text-white text-center mb-6 opacity-90">Digital Forensic Image Metadata & Evidence Analysis</p>
+
+    <!-- Upload + controls -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+      <div class="card">
+        <label class="block font-semibold mb-1">Select image</label>
+        <input type="file" id="fileInput" accept="image/*" class="mb-2">
+        <div class="flex gap-2">
+          <button id="runAnalysisBtn" class="px-3 py-2 bg-indigo-600 text-white rounded">Run Forensic Analysis</button>
+          <button id="downloadExcelBtn" class="px-3 py-2 bg-blue-600 text-white rounded">📥 Download Excel</button>
+          <button id="generatePdfBtn" class="px-3 py-2 bg-rose-600 text-white rounded">📄 Generate PDF Report</button>
         </div>
 
-        <div id="rawJsonWrap" class="hidden card">
-          <div class="card-header">🗂️ Metadata JSON</div>
-          <pre id="rawJson" class="text-xs mt-2"></pre>
-          <div class="card-header">🗂️ Metadata</div>
+        <hr class="my-3">
+
+        <!-- Chain of custody fields -->
+        <div>
+          <h3 class="font-semibold mb-1">Chain of Custody</h3>
+          <div class="grid grid-cols-1 gap-2">
+            <input id="caseId" placeholder="Case ID" class="p-2 border rounded small">
+            <input id="investigator" placeholder="Investigator name" class="p-2 border rounded small">
+            <input id="source" placeholder="Source / Uploader name" class="p-2 border rounded small">
+            <div class="flex gap-2">
+              <input id="cocEntryText" placeholder="Add custody entry (e.g., 'Received from X')" class="p-2 border rounded small flex-1">
+              <button id="addCocEntry" class="px-3 py-2 bg-gray-700 text-white rounded small">Add</button>
+            </div>
+            <div id="cocLog" class="mt-2 small border rounded p-2 max-h-36 overflow-auto bg-white"></div>
+            <div class="flex gap-2 mt-2">
+              <button id="exportCocBtn" class="px-3 py-2 bg-emerald-600 text-white rounded small">Export CoC JSON</button>
+              <button id="clearCocBtn" class="px-3 py-2 bg-yellow-600 text-white rounded small">Clear CoC</button>
+            </div>
+          </div>
         </div>
-      </aside>
-    </main>
-@@ -77,7 +89,6 @@
-    const chooseBtn = document.getElementById('chooseBtn');
-    const preview = document.getElementById('preview');
-    const previewWrap = document.getElementById('previewWrap');
-    const rawJson = document.getElementById('rawJson');
-    const rawJsonWrap = document.getElementById('rawJsonWrap');
-    const gpsWrap = document.getElementById('gpsWrap');
-    const gpsText = document.getElementById('gpsText');
-@@ -116,9 +127,7 @@
+      </div>
 
-      updateBasicInfo(file);
-      renderFields(lastMetadata);
+      <!-- Preview + ELA -->
+      <div class="card" id="previewCard">
+        <h3 class="font-semibold">Image Preview</h3>
+        <img id="preview" class="rounded shadow mt-2" style="max-height:320px; display:block;">
+        <h3 class="font-semibold mt-3">Error Level Analysis (ELA)</h3>
+        <canvas id="elaCanvas" class="mt-2 border rounded"></canvas>
+        <div id="elaScore" class="mt-2 small"></div>
+      </div>
+    </div>
 
-      rawJson.textContent = JSON.stringify(lastMetadata, null, 2);
-      rawJsonWrap.classList.remove('hidden');
-      renderMetadataCards(lastMetadata);
+    <!-- Metadata + map + results -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div class="card">
+        <h3 class="font-semibold">Metadata & Forensic Summary</h3>
+        <div id="metadataList" class="mt-2 small"></div>
+
+        <hr class="my-2">
+
+        <div id="forensicSummary" class="small"></div>
+      </div>
+
+      <div class="card">
+        <h3 class="font-semibold">GPS Location</h3>
+        <div id="gpsText" class="small mt-1"></div>
+        <div id="map" class="mt-2 hidden"></div>
+      </div>
+    </div>
+
+  </div>
+
+<!-- =========================== JS ================================ -->
+<script>
+  // --- Globals ---
+  let lastMetadata = {};
+  let lastFile = null;
+  let map = null;
+  let cocLog = []; // chain of custody entries
+
+  // Utility: read file as array buffer
+  function readAsArrayBuffer(file) {
+    return new Promise((res, rej) => {
+      const r = new FileReader();
+      r.onload = () => res(r.result);
+      r.onerror = rej;
+      r.readAsArrayBuffer(file);
+    });
+  }
+
+  // Utility: read file as data URL
+  function readAsDataURL(file) {
+    return new Promise((res, rej) => {
+      const r = new FileReader();
+      r.onload = () => res(r.result);
+      r.onerror = rej;
+      r.readAsDataURL(file);
+    });
+  }
+
+  // --- Hash generator ---
+  async function generateHash(file, algorithm) {
+    // algorithm string: "MD5" may not be supported in some browsers' SubtleCrypto.
+    // Fallback: try then show "Not supported"
+    try {
+      const buf = await file.arrayBuffer();
+      const digest = await crypto.subtle.digest(algorithm, buf);
+      const arr = Array.from(new Uint8Array(digest));
+      return arr.map(b => b.toString(16).padStart(2,'0')).join('');
+    } catch (e) {
+      return "Not supported";
+    }
+  }
+
+  // --- Render metadata key/values ---
+  function renderMetadata(metadata) {
+    const container = document.getElementById("metadataList");
+    container.innerHTML = "";
+    const keys = Object.keys(metadata);
+    if (keys.length === 0) {
+      container.innerHTML = "<div class='small'>No metadata available.</div>";
+      return;
+    }
+    for (const k of keys) {
+      const v = metadata[k];
+      const row = document.createElement("div");
+      row.className = "flex justify-between py-1 border-b";
+      const left = document.createElement("div");
+      left.innerHTML = `<strong>${k}</strong>`;
+      const right = document.createElement("div");
+      right.style.maxWidth = "55%";
+      right.style.textAlign = "right";
+      right.textContent = String(v);
+      row.appendChild(left);
+      row.appendChild(right);
+      container.appendChild(row);
+    }
+  }
+
+  // --- Convert DMS to decimal ---
+  function dmsToDecimal(dms, ref) {
+    // dms is array like [deg, min, sec] where each may be object/value depending on ExifReader
+    try {
+      const vals = dms.map(x => (x && x.value) ? Number(x.value) : Number(x));
+      let dec = vals[0] + vals[1]/60 + vals[2]/3600;
+      if (ref === "S" || ref === "W") dec = -dec;
+      return dec;
+    } catch(e) {
+      return null;
+    }
+  }
+
+  // --- ELA (Error Level Analysis) ---
+  async function runELA(imgElement, quality=90) {
+    // Draw original to canvas
+    const width = imgElement.naturalWidth;
+    const height = imgElement.naturalHeight;
+    // limit size for performance
+    const maxDim = 1200;
+    const scale = Math.min(1, maxDim / Math.max(width, height));
+    const w = Math.round(width * scale);
+    const h = Math.round(height * scale);
+
+    // original canvas
+    const originalCanvas = document.createElement("canvas");
+    originalCanvas.width = w;
+    originalCanvas.height = h;
+    const octx = originalCanvas.getContext("2d");
+    octx.drawImage(imgElement, 0, 0, w, h);
+
+    // create recompressed JPEG at given quality
+    const mime = "image/jpeg";
+    const jpegDataUrl = originalCanvas.toDataURL(mime, quality/100);
+
+    // load recompressed image
+    const recompressedImg = await new Promise(res => {
+      const i = new Image();
+      i.onload = () => res(i);
+      i.src = jpegDataUrl;
+    });
+
+    // recompressed canvas
+    const recomCanvas = document.createElement("canvas");
+    recomCanvas.width = w;
+    recomCanvas.height = h;
+    const rctx = recomCanvas.getContext("2d");
+    rctx.drawImage(recompressedImg, 0, 0, w, h);
+
+    // difference canvas
+    const diffCanvas = document.getElementById("elaCanvas");
+    diffCanvas.width = w;
+    diffCanvas.height = h;
+    const dctx = diffCanvas.getContext("2d");
+
+    const origData = octx.getImageData(0,0,w,h).data;
+    const recData = rctx.getImageData(0,0,w,h).data;
+    const diff = dctx.createImageData(w,h);
+    let totalDiff = 0;
+    for (let i=0;i<origData.length;i+=4) {
+      // compute per-channel absolute differences and amplify
+      const dr = Math.abs(origData[i] - recData[i]);
+      const dg = Math.abs(origData[i+1] - recData[i+1]);
+      const db = Math.abs(origData[i+2] - recData[i+2]);
+      // amplify for visibility
+      const amp = 10;
+      diff.data[i]   = Math.min(255, dr*amp);
+      diff.data[i+1] = Math.min(255, dg*amp);
+      diff.data[i+2] = Math.min(255, db*amp);
+      diff.data[i+3] = 255;
+      totalDiff += (dr + dg + db) / 3;
+    }
+    dctx.putImageData(diff, 0, 0);
+
+    // ELA score = mean difference (normalized)
+    const pixels = w*h;
+    const meanDiff = totalDiff / pixels;
+    // Normalization to a 0-100 scale (heuristic)
+    const elaScore = Math.min(100, (meanDiff / 2));
+    document.getElementById("elaScore").textContent = `ELA mean diff score: ${elaScore.toFixed(2)} (heuristic)`;
+    return elaScore;
+  }
+
+  // --- Heuristic risk scoring (deepfake/manipulation triage) ---
+  // Combines ELA score + EXIF inconsistencies + missing serial / thumbnail to produce a risk score 0-100
+  function computeRisk(metadata, elaScore) {
+    let score = 0;
+    // ELA contribution (0..50)
+    score += Math.min(50, elaScore * 0.8);
+
+    // Missing camera model or serial increases suspicion slightly
+    if (!metadata["Camera Model"] || metadata["Camera Model"] === "undefined") score += 8;
+    if (!metadata["Camera Serial Number"] || metadata["Camera Serial Number"] === "undefined") score += 8;
+
+    // EXIF dates inconsistent (Original > Modified etc)
+    try {
+      const orig = metadata["Original Date & Time"];
+      const mod = metadata["Modified Date & Time"];
+      if (orig && mod) {
+        const o = Date.parse(String(orig).replace(/:/g,'-'));
+        const m = Date.parse(String(mod).replace(/:/g,'-'));
+        if (!isNaN(o) && !isNaN(m) && m > o + (1000*60)) {
+          // modified significantly after original
+          score += 10;
+        }
+        if (Math.abs(m - o) > 1000 * 60 * 60 * 24 * 365 * 5) {
+          // huge gap — suspicious
+          score += 5;
+        }
+      }
+    } catch(e) {}
+
+    // absence of GPS but presence of camera serial/model is normal; no change.
+    // cap
+    return Math.min(100, Math.round(score));
+  }
+
+  // --- GPS / Map helpers ---
+  function showMap(lat, lng) {
+    document.getElementById("map").classList.remove("hidden");
+    if (!map) {
+      map = L.map("map").setView([lat, lng], 16);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
+    } else {
+      map.setView([lat, lng], 16);
+    }
+    L.marker([lat, lng]).addTo(map);
+  }
+
+  // --- Excel export ---
+  document.getElementById("downloadExcelBtn").addEventListener("click", () => {
+    if (!lastMetadata || Object.keys(lastMetadata).length === 0) return alert("Upload and analyze an image first.");
+    const rows = [["Key","Value"]];
+    for (const k in lastMetadata) {
+      rows.push([k, String(lastMetadata[k])]);
+    }
+    const sheet = XLSX.utils.aoa_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, sheet, "Metadata");
+    XLSX.writeFile(wb, "image_metadata.xlsx");
+  });
+
+  // --- Chain-of-custody actions ---
+  document.getElementById("addCocEntry").addEventListener("click", () => {
+    const text = document.getElementById("cocEntryText").value.trim();
+    if (!text) return;
+    const entry = { text, time: new Date().toISOString() };
+    cocLog.push(entry);
+    renderCoc();
+    document.getElementById("cocEntryText").value = "";
+  });
+
+  document.getElementById("clearCocBtn").addEventListener("click", () => {
+    if (!confirm("Clear all CoC entries?")) return;
+    cocLog = [];
+    renderCoc();
+  });
+
+  function renderCoc() {
+    const el = document.getElementById("cocLog");
+    el.innerHTML = "";
+    if (cocLog.length === 0) {
+      el.textContent = "(no custody entries)";
+      return;
+    }
+    for (const e of cocLog) {
+      const d = document.createElement("div");
+      d.className = "border-b py-1 small";
+      d.innerHTML = `<strong>${new Date(e.time).toLocaleString()}</strong><div>${e.text}</div>`;
+      el.appendChild(d);
+    }
+  }
+
+  document.getElementById("exportCocBtn").addEventListener("click", () => {
+    const caseId = document.getElementById("caseId").value || "";
+    const investigator = document.getElementById("investigator").value || "";
+    const source = document.getElementById("source").value || "";
+    const payload = { caseId, investigator, source, cocLog };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {type: "application/json"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `chain_of_custody_${caseId || 'report'}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  // --- Main analysis flow ---
+  async function analyzeFile(file) {
+    lastFile = file;
+    // Show preview
+    const preview = document.getElementById("preview");
+    preview.src = await readAsDataURL(file);
+
+    // Read EXIF
+    const buffer = await readAsArrayBuffer(file);
+    let metadata = ExifReader.load(buffer, { expanded: true }) || {};
+
+    // Extract camera model / serial / dates
+    if (metadata["Model"]) metadata["Camera Model"] = metadata["Model"].description || metadata["Model"].value || metadata["Model"];
+    if (metadata["BodySerialNumber"]) metadata["Camera Serial Number"] = metadata["BodySerialNumber"].description || metadata["BodySerialNumber"].value || metadata["BodySerialNumber"];
+    else if (metadata["SerialNumber"]) metadata["Camera Serial Number"] = metadata["SerialNumber"].description || metadata["SerialNumber"].value || metadata["SerialNumber"];
+
+    if (metadata["DateTimeOriginal"]) metadata["Original Date & Time"] = metadata["DateTimeOriginal"].description || metadata["DateTimeOriginal"].value || metadata["DateTimeOriginal"];
+    if (metadata["ModifyDate"]) metadata["Modified Date & Time"] = metadata["ModifyDate"].description || metadata["ModifyDate"].value || metadata["ModifyDate"];
+    else if (metadata["DateTime"]) metadata["Modified Date & Time"] = metadata["DateTime"].description || metadata["DateTime"].value || metadata["DateTime"];
+
+    // Generate hash values
+    metadata["MD5 Hash"] = await generateHash(file, "MD5").catch(()=> "Not supported");
+    metadata["SHA-1 Hash"] = await generateHash(file, "SHA-1");
+    metadata["SHA-256 Hash"] = await generateHash(file, "SHA-256");
+
+    // Show GPS if present
+    if (metadata.gps) {
+      try {
+        const lat = dmsToDecimal(metadata.gps.GPSLatitude.value || metadata.gps.GPSLatitude, (metadata.gps.GPSLatitudeRef && metadata.gps.GPSLatitudeRef.value) ? metadata.gps.GPSLatitudeRef.value : (metadata.gps.GPSLatitudeRef || 'N'));
+        const lon = dmsToDecimal(metadata.gps.GPSLongitude.value || metadata.gps.GPSLongitude, (metadata.gps.GPSLongitudeRef && metadata.gps.GPSLongitudeRef.value) ? metadata.gps.GPSLongitudeRef.value : (metadata.gps.GPSLongitudeRef || 'E'));
+        if (lat && lon) {
+          document.getElementById("gpsText").textContent = `Latitude: ${lat.toFixed(6)}, Longitude: ${lon.toFixed(6)}`;
+          showMap(lat, lon);
+        } else {
+          document.getElementById("gpsText").textContent = "(GPS present but could not parse coordinates)";
+        }
+      } catch(e) {
+        document.getElementById("gpsText").textContent = "(No GPS)";
+      }
+    } else {
+      document.getElementById("gpsText").textContent = "(No GPS data present)";
     }
 
-    function readAsDataURL(file) {
-@@ -203,6 +212,31 @@
-        alert('Metadata copied to clipboard');
-      };
-    }
-
-    function renderMetadataCards(metadata) {
-      rawJsonWrap.innerHTML = '<div class="card-header">🗂️ Metadata</div>'; // Clear previous content
-      rawJsonWrap.classList.remove('hidden');
-
-      for (const key in metadata) {
-        if (!metadata.hasOwnProperty(key)) continue;
-        const value = metadata[key];
-
-        const card = document.createElement('div');
-        card.className = 'metadata-card';
-
-        const k = document.createElement('div');
-        k.className = 'metadata-key';
-        k.textContent = key;
-
-        const v = document.createElement('div');
-        v.className = 'metadata-value';
-        v.textContent = String(value);
-
-        card.appendChild(k);
-        card.appendChild(v);
-        rawJsonWrap.appendChild(card);
+    // Render metadata in UI
+    lastMetadata = {};
+    // Flatten ExifReader structures for display: prefer description or value
+    for (const k in metadata) {
+      if (k === 'gps') continue; // gps handled separately
+      const entry = metadata[k];
+      // If it's object with 'description' or 'value', pick that
+      if (entry && typeof entry === 'object' && ('description' in entry || 'value' in entry)) {
+        lastMetadata[k] = entry.description || entry.value;
+      } else {
+        lastMetadata[k] = entry;
       }
     }
-  </script>
+
+    renderMetadata(lastMetadata);
+
+    // Run ELA and compute heuristic risk score
+    const elaScore = await runELA(document.getElementById("preview")).catch(e => {
+      console.error(e);
+      document.getElementById("elaScore").textContent = "ELA failed: " + e.message;
+      return 0;
+    });
+
+    const risk = computeRisk(lastMetadata, elaScore);
+    // Forensic summary text
+    const summaryEl = document.getElementById("forensicSummary");
+    summaryEl.innerHTML = `
+      <div><strong>Forensic Triage</strong></div>
+      <div>ELA score (mean diff): <strong>${elaScore.toFixed(2)}</strong></div>
+      <div>Manipulation risk (heuristic 0-100): <strong>${risk}</strong></div>
+      <div>Notes:</div>
+      <ul class="small">
+        ${ elaScore > 20 ? '<li>ELA indicates potential recompression / edits in parts of the image.</li>' : '<li>ELA shows low overall recompression differences.</li>' }
+        ${ (!lastMetadata["Camera Serial Number"]) ? '<li>Camera serial number missing — could be stripped.</li>' : '' }
+        ${ (!lastMetadata["Camera Model"]) ? '<li>Camera model missing — metadata may be limited or stripped.</li>' : '' }
+        <li>This is a heuristic triage. For high-confidence classification use a trained model or external service.</li>
+      </ul>
+    `;
+
+    // store a few computed values for PDF
+    lastMetadata["_ELA_Score"] = elaScore.toFixed(2);
+    lastMetadata["_Risk_Score"] = risk;
+
+    return { metadata: lastMetadata, elaScore, risk };
+  }
+
+  // --- File input handlers ---
+  document.getElementById("fileInput").addEventListener("change", async (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    // clear previous map markers by resetting map variable (simple approach)
+    if (map) {
+      map.remove();
+      map = null;
+      document.getElementById("map").innerHTML = "";
+    }
+    await analyzeFile(f);
+  });
+
+  document.getElementById("runAnalysisBtn").addEventListener("click", async () => {
+    const f = document.getElementById("fileInput").files[0];
+    if (!f) return alert("Choose a file first.");
+    await analyzeFile(f);
+  });
+
+  // --- PDF generation ---
+  document.getElementById("generatePdfBtn").addEventListener("click", async () => {
+    if (!lastFile || !lastMetadata) return alert("Analyze an image first.");
+    const caseId = document.getElementById("caseId").value || "";
+    const investigator = document.getElementById("investigator").value || "";
+    const source = document.getElementById("source").value || "";
+    // Prepare a printable summary block (we'll render it via html2canvas)
+    const reportDiv = document.createElement("div");
+    reportDiv.style.width = "1024px";
+    reportDiv.style.padding = "20px";
+    reportDiv.style.background = "white";
+    reportDiv.innerHTML = `
+      <h1 style="font-size:24px;margin-bottom:8px;">Forensic Report</h1>
+      <div style="font-size:12px;margin-bottom:6px;">
+        <strong>Case ID:</strong> ${caseId} &nbsp; | &nbsp;
+        <strong>Investigator:</strong> ${investigator} &nbsp; | &nbsp;
+        <strong>Source:</strong> ${source} &nbsp; | &nbsp;
+        <strong>Generated:</strong> ${new Date().toLocaleString()}
+      </div>
+      <div style="display:flex;gap:12px;">
+        <div style="flex:1">
+          <div><strong>Image Preview:</strong></div>
+          <img id="pdfPreviewImg" src="${document.getElementById("preview").src}" style="max-width:100%;border:1px solid #ccc;margin-top:6px;">
+        </div>
+        <div style="flex:1">
+          <div><strong>Forensic Summary</strong></div>
+          <div>ELA Score: ${lastMetadata["_ELA_Score"] || 'N/A'}</div>
+          <div>Risk Score: ${lastMetadata["_Risk_Score"] || 'N/A'}</div>
+          <div style="margin-top:8px;"><strong>Chain of Custody</strong></div>
+          <div style="font-size:11px;">
+            Case ID: ${caseId}<br>
+            Investigator: ${investigator}<br>
+            Source: ${source}<br>
+            ${ cocLog.map(e => `<div style="margin-top:6px;"><strong>${new Date(e.time).toLocaleString()}</strong><div>${e.text}</div></div>`).join('') || '<div>(no entries)</div>'}
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:10px;">
+        <strong>Metadata (selected):</strong>
+        <div style="font-size:11px;margin-top:6px;">
+          ${Object.keys(lastMetadata).map(k => `<div><strong>${k}:</strong> ${String(lastMetadata[k])}</div>`).join('')}
+        </div>
+      </div>
+      <div style="margin-top:10px;">
+        <strong>ELA Visualization:</strong>
+        <div id="pdfElaPlace" style="margin-top:6px;"></div>
+      </div>
+    `;
+
+    // attach to DOM (hidden) so html2canvas can render images and canvas
+    document.body.appendChild(reportDiv);
+    // Render ELA canvas into image and insert
+    const elaCanvas = document.getElementById("elaCanvas");
+    if (elaCanvas) {
+      const elaDataUrl = elaCanvas.toDataURL("image/png");
+      const img = document.createElement("img");
+      img.src = elaDataUrl;
+      img.style.maxWidth = "100%";
+      reportDiv.querySelector("#pdfElaPlace").appendChild(img);
+    }
+
+    // Use html2canvas to snapshot the reportDiv
+    const canvas = await html2canvas(reportDiv, { scale: 2 });
+    const imgData = canvas.toDataURL("image/jpeg", 0.9);
+    // Build PDF using jsPDF
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ unit: 'px', format: [canvas.width, canvas.height] });
+    pdf.addImage(imgData, 'JPEG', 0, 0, canvas.width, canvas.height);
+    // Attach metadata JSON as file inside PDF (PDF attachments are advanced; instead include JSON as text page)
+    const metaText = JSON.stringify(lastMetadata, null, 2);
+    // Add a new page with metadata text (wrap text)
+    pdf.addPage();
+    const split = pdf.splitTextToSize(metaText, pdf.internal.pageSize.getWidth() - 40);
+    pdf.text(split, 20, 20);
+    // Save
+    const filename = `forensic_report_${caseId || 'report'}.pdf`;
+    pdf.save(filename);
+
+    // cleanup
+    document.body.removeChild(reportDiv);
+  });
+
+  // --- Optional: Placeholder to show how to integrate with external AI deepfake API ---
+  // NOTE: For reliable AI-based deepfake detection use a server-side model or a commercial API.
+  // This placeholder demonstrates where to call such a service if you have an endpoint/key.
+  async function callExternalDeepfakeAPI(imageDataUrl, apiKey, endpoint) {
+    // Example (pseudo):
+    // const res = await fetch(endpoint, {
+    //   method: "POST",
+    //   headers: { "Authorization": "Bearer " + apiKey, "Content-Type": "application/json" },
+    //   body: JSON.stringify({ image: imageDataUrl })
+    // });
+    // return res.json();
+    throw new Error("No external API configured. This is a placeholder.");
+  }
+
+  // --- On load, initialize CoC view ---
+  renderCoc();
+
+</script>
 </body>
 </html>
