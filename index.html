@@ -2,600 +2,326 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>META FORENSIC — Case Manager</title>
-
-  <!-- Tailwind CDN -->
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Image Metadata Viewer</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Meta Forensic</title>
   <script src="https://cdn.tailwindcss.com"></script>
-
-  <!-- EXIF Reader -->
-  <script src="https://cdn.jsdelivr.net/npm/exifreader@4.12.0/dist/exif-reader.min.js"></script>
-
-  <!-- CryptoJS (MD5 & WordArray helper) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
-
-  <!-- SheetJS (XLSX) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-
-  <!-- jsPDF + html2canvas -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
-
-  <!-- Leaflet -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/exifreader/dist/exif-reader.min.js"></script>
+  <!-- Leaflet for map preview -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
   <style>
-    /* Premium forensic theme (dark + neon blue) */
-    :root{
-      --accent: #06b6d4;
-      --accent-2: #38bdf8;
-      --bg: #02040a;
-      --card-bg: rgba(6,9,15,0.7);
-      --muted: #a7b9c9;
-      --text: #e6f3fb;
+    body {
+      background: url('https://images.unsplash.com/photo-1581091215364-37a5681d9c8b?auto=format&fit=crop&w=1920&q=80') no-repeat center center fixed;
+      background-size: cover;
     }
-    html,body { height:100%; margin:0; background: radial-gradient(circle at 10% 10%, #061022 0%, #000 60%), var(--bg); color:var(--text); font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;}
-    .glass { background: var(--card-bg); border: 1px solid rgba(56,189,248,0.08); backdrop-filter: blur(8px); border-radius:12px; padding:16px; box-shadow: 0 6px 30px rgba(0,0,0,0.5); }
-    .title-glow { color: white; text-shadow: 0 0 10px rgba(56,189,248,0.12), 0 0 20px rgba(6,182,212,0.06); }
-    .accent { color: var(--accent-2); }
-    .muted { color: var(--muted); }
-    .cyber-divider { height:4px; width:160px; margin:auto; background: linear-gradient(90deg, transparent, var(--accent-2), var(--accent), transparent); border-radius:4px; margin-top:8px; margin-bottom:10px;}
-    #map { height:200px; border-radius:8px; margin-top:8px; }
-    pre { white-space: pre-wrap; word-break: break-word; color:var(--text); }
-    .btn { transition: .15s; }
-    .btn:active { transform: translateY(1px); }
-    /* small responsive tweaks */
-    @media (max-width: 900px) {
-      #map { height:160px; }
-    }
+    .dropzone { transition: background-color .15s ease; }
+    pre { max-height: 28rem; overflow: auto; }
+    #map { height: 200px; border-radius: 0.5rem; margin-top: 0.5rem; }
+    .card-header { background-color: rgba(30,64,175,0.1); padding: 0.5rem 1rem; border-radius: 0.5rem 0.5rem 0 0; font-weight: 600; }
+    .card { background-color: rgba(255,255,255,0.9); border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
   </style>
 </head>
-<body class="p-6">
+<body class="bg-gray-50 text-slate-900 min-h-screen p-6">
+  <div class="max-w-5xl mx-auto">
+    <header class="mb-6">
+      <h1 class="text-3xl font-semibold">Image Metadata Viewer</h1>
+      <p class="text-sm text-slate-600">Upload an image (JPEG/PNG/HEIC*) to view EXIF/IPTC metadata, preview the photo, download metadata JSON or strip metadata.</p>
+      <p class="text-xs text-slate-500 mt-1">*HEIC support depends on the browser and platform.</p>
+<body class="text-slate-900 min-h-screen p-6">
+  <div class="max-w-6xl mx-auto">
+    <header class="mb-6 text-center text-white">
+      <h1 class="text-4xl font-bold">Meta Forensic</h1>
+      <p class="text-lg mt-1">Upload a picture to view metadata</p>
+    </header>
 
-  <!-- HEADER -->
-  <header class="max-w-7xl mx-auto text-center mb-6">
-    <h1 class="text-5xl font-extrabold title-glow tracking-tight">META FORENSIC</h1>
-    <div class="cyber-divider"></div>
-    <p class="muted mt-3">Case Management • Image Metadata • Chain-of-Custody • Forensic Reporting</p>
-  </header>
-
-  <!-- LAYOUT -->
-  <main class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-    <!-- LEFT: Case Management / CoC -->
-    <section class="col-span-1">
-      <div class="glass mb-4">
-        <h2 class="text-lg font-semibold accent">Case Management</h2>
-        <div class="mt-3 space-y-2">
-          <input id="caseTitle" placeholder="Case title / brief" class="w-full p-2 rounded bg-[#061225] border border-[#0b2230] text-sm" />
-          <input id="caseInvestigator" placeholder="Investigator name" class="w-full p-2 rounded bg-[#061225] border border-[#0b2230] text-sm" />
-          <div class="flex gap-2">
-            <button id="createCaseBtn" class="btn flex-1 bg-[#0891b2] hover:bg-[#06b6d4] px-3 py-2 rounded text-black font-semibold">Create Case</button>
-            <button id="clearCasesBtn" class="btn bg-[#fb923c] hover:bg-[#f97316] px-3 py-2 rounded text-black font-semibold">Clear All</button>
+    <main class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <section class="md:col-span-2">
+        <div id="drop" class="dropzone p-6 border-2 border-dashed border-slate-200 rounded-lg bg-white text-center">
+    <main class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <!-- Upload Section -->
+      <section>
+        <div id="drop" class="dropzone card text-center border-2 border-dashed border-slate-300">
+          <input id="fileInput" type="file" accept="image/*" class="hidden" />
+          <div id="dropInner">
+            <p class="mb-2">Drag & drop an image here, or</p>
+@@ -34,45 +39,34 @@ <h1 class="text-3xl font-semibold">Image Metadata Viewer</h1>
           </div>
         </div>
 
-        <hr class="my-3 border-t border-[#0b2230]" />
+        <div id="previewWrap" class="mt-4 hidden bg-white p-4 rounded shadow">
+        <div id="previewWrap" class="hidden card">
+          <div class="flex gap-4 items-start">
+            <img id="preview" alt="preview" class="w-48 h-48 object-contain rounded border" />
+            <div class="flex-1">
+              <h2 class="font-medium">Preview & actions</h2>
+              <p id="basicInfo" class="text-sm text-slate-600 mt-1"></p>
 
-        <label class="text-sm muted">Select case</label>
-        <select id="caseSelect" class="w-full mt-2 p-2 rounded bg-[#061225] border border-[#0b2230] text-sm"></select>
-        <div id="caseDetails" class="mt-3 muted text-sm"></div>
-      </div>
+              <div class="card-header">📷 General Info</div>
+              <p id="basicInfo" class="text-sm text-slate-700 mt-2"></p>
+              <div class="mt-3 flex gap-2">
+                <button id="downloadMetaBtn" class="px-3 py-1 rounded border">Download metadata (JSON)</button>
+                <button id="copyMetaBtn" class="px-3 py-1 rounded border">Copy metadata</button>
+                <button id="stripMetaBtn" class="px-3 py-1 rounded border">Export without metadata</button>
+                <button id="downloadMetaBtn" class="px-3 py-1 rounded border">Download JSON</button>
+                <button id="copyMetaBtn" class="px-3 py-1 rounded border">Copy Metadata</button>
+              </div>
 
-      <div class="glass mb-4">
-        <h3 class="text-lg font-semibold accent">Chain-of-Custody (Auto-fill)</h3>
-        <div class="mt-3 space-y-2">
-          <input id="cocActor" placeholder="Actor (auto from case)" class="w-full p-2 rounded bg-[#061225] border border-[#0b2230] text-sm" />
-          <select id="cocAction" class="w-full p-2 rounded bg-[#061225] border border-[#0b2230] text-sm">
-            <option>Collected</option>
-            <option>Received</option>
-            <option>Transferred</option>
-            <option>Analyzed</option>
-            <option>Stored</option>
-            <option>Returned</option>
-            <option>Other</option>
-          </select>
-          <input id="cocNote" placeholder="Optional note" class="w-full p-2 rounded bg-[#061225] border border-[#0b2230] text-sm" />
-          <div class="flex gap-2">
-            <button id="addCocAuto" class="btn flex-1 bg-[#10b981] hover:bg-[#34d399] px-3 py-2 rounded text-black font-semibold">Add Entry</button>
-            <button id="autoFillToggle" class="btn bg-[#2563eb] hover:bg-[#60a5fa] px-3 py-2 rounded text-black font-semibold">Auto-fill Import (ON)</button>
+              <p class="mt-2 text-xs text-slate-500">Note: exporting via canvas strips metadata for most image formats.</p>
+            </div>
           </div>
         </div>
 
-        <hr class="my-3 border-t border-[#0b2230]" />
-
-        <div class="muted text-sm">CoC Log for selected case</div>
-        <div id="cocLog" class="mt-2 p-2 rounded bg-[#071223] max-h-56 overflow-auto text-sm"></div>
-
-        <div class="flex gap-2 mt-3">
-          <button id="exportCoc" class="btn flex-1 bg-[#0891b2] hover:bg-[#06b6d4] px-3 py-2 rounded text-black font-semibold">Export CoC</button>
-          <button id="clearCoc" class="btn bg-[#ef4444] hover:bg-[#f87171] px-3 py-2 rounded text-black font-semibold">Clear CoC</button>
+        <div id="rawJsonWrap" class="mt-4 hidden bg-white p-4 rounded shadow">
+          <h3 class="font-medium mb-2">Raw metadata (parsed)</h3>
+          <pre id="rawJson" class="text-xs"></pre>
         </div>
-      </div>
+      </section>
 
-      <div class="glass mb-4">
-        <h3 class="text-lg font-semibold accent">Quick Actions</h3>
-        <div class="mt-3 grid grid-cols-1 gap-2">
-          <button id="actionCollect" class="btn bg-[#0ea5a4] hover:bg-[#34d399] px-3 py-2 rounded text-black">Mark Collected</button>
-          <button id="actionAnalyze" class="btn bg-[#f59e0b] hover:bg-[#fbbf24] px-3 py-2 rounded text-black">Mark Analyzed</button>
-          <button id="actionTransfer" class="btn bg-[#ef4444] hover:bg-[#fb7185] px-3 py-2 rounded text-black">Mark Transferred</button>
+      <aside class="bg-white p-4 rounded shadow">
+        <h3 class="font-medium mb-2">Quick extracted fields</h3>
+        <table class="w-full text-sm">
+          <tbody id="fieldsTable"></tbody>
+        </table>
+
+        <div id="gpsWrap" class="mt-4 hidden">
+          <h4 class="font-medium">GPS</h4>
+          <p id="gpsText" class="text-sm"></p>
+      <!-- Metadata Section -->
+      <aside>
+        <div id="gpsWrap" class="hidden card">
+          <div class="card-header">🌍 GPS & Map</div>
+          <p id="gpsText" class="text-sm text-slate-700 mt-2"></p>
+          <a id="gpsLink" target="_blank" class="text-indigo-600 text-sm underline">Open in Google Maps</a>
+          <div id="map"></div>
         </div>
-      </div>
-    </section>
 
-    <!-- MIDDLE: Upload / Preview / Map -->
-    <section class="col-span-1 lg:col-span-1">
-      <div class="glass mb-4">
-        <h2 class="text-lg font-semibold accent">Upload & Preview</h2>
-        <div class="mt-3">
-          <label class="block mb-2 muted text-sm">Select image (JPEG/PNG/HEIC - browser dependent)</label>
-          <input id="fileInput" type="file" accept="image/*" class="w-full p-2 rounded bg-[#061225] border border-[#0b2230] text-sm" />
+        <hr class="my-3" />
+        <p class="text-xs text-slate-500">Built as a single-file demo. Customize fields or export behavior in the script.</p>
+        <div id="rawJsonWrap" class="hidden card">
+          <div class="card-header">🗂️ Metadata JSON</div>
+          <pre id="rawJson" class="text-xs mt-2"></pre>
         </div>
-        <div class="mt-4">
-          <img id="preview" src="" alt="preview" class="w-full rounded border border-[#123] shadow-sm" style="max-height:360px; object-fit:contain;" />
-        </div>
-      </div>
+      </aside>
+    </main>
+  </div>
+@@ -85,13 +79,11 @@ <h4 class="font-medium">GPS</h4>
+    const previewWrap = document.getElementById('previewWrap');
+    const rawJson = document.getElementById('rawJson');
+    const rawJsonWrap = document.getElementById('rawJsonWrap');
+    const fieldsTable = document.getElementById('fieldsTable');
+    const gpsWrap = document.getElementById('gpsWrap');
+    const gpsText = document.getElementById('gpsText');
+    const gpsLink = document.getElementById('gpsLink');
+    const downloadMetaBtn = document.getElementById('downloadMetaBtn');
+    const copyMetaBtn = document.getElementById('copyMetaBtn');
+    const stripMetaBtn = document.getElementById('stripMetaBtn');
+    const basicInfo = document.getElementById('basicInfo');
 
-      <div id="gpsCard" class="glass mb-4 hidden">
-        <h3 class="text-lg font-semibold accent">GPS Location</h3>
-        <div class="mt-2 muted text-sm" id="gpsText"></div>
-        <a id="gpsLink" class="muted text-sm underline" target="_blank" rel="noopener">Open in Google Maps</a>
-        <div id="map" class="mt-3"></div>
-      </div>
-    </section>
+    let lastMetadata = null;
+@@ -103,22 +95,14 @@ <h4 class="font-medium">GPS</h4>
+    chooseBtn.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
 
-    <!-- RIGHT: Metadata / Detection / Export -->
-    <section class="col-span-1 lg:col-span-1">
-      <div class="glass mb-4">
-        <h2 class="text-lg font-semibold accent">Metadata (formatted)</h2>
-        <pre id="metadata" class="mt-3 text-sm muted"></pre>
-      </div>
+    ['dragenter','dragover'].forEach(evt => {
+      drop.addEventListener(evt, (ev) => { ev.preventDefault(); drop.classList.add('bg-slate-50'); });
+    });
+    ['dragleave','drop'].forEach(evt => {
+      drop.addEventListener(evt, (ev) => { ev.preventDefault(); drop.classList.remove('bg-slate-50'); });
+    });
+    drop.addEventListener('drop', (ev) => {
+      const f = ev.dataTransfer.files && ev.dataTransfer.files[0];
+      if (f) handleFiles([f]);
+    });
+    ['dragenter','dragover'].forEach(evt => drop.addEventListener(evt, (ev) => { ev.preventDefault(); drop.classList.add('bg-slate-50'); }));
+    ['dragleave','drop'].forEach(evt => drop.addEventListener(evt, (ev) => { ev.preventDefault(); drop.classList.remove('bg-slate-50'); }));
+    drop.addEventListener('drop', (ev) => { const f = ev.dataTransfer.files && ev.dataTransfer.files[0]; if (f) handleFiles([f]); });
 
-      <div class="glass mb-4">
-        <h3 class="text-lg font-semibold accent">Detected Editing / Manipulation</h3>
-        <div id="editApps" class="mt-2 muted text-sm">—</div>
-        <div id="manipNotes" class="mt-2 muted text-sm"></div>
-      </div>
+    async function handleFiles(files) {
+      if (!files || files.length === 0) return;
+      const file = files[0];
+      lastFileName = (file.name || 'image').replace(/\.[^/.]+$/, '');
 
-      <div class="glass flex gap-2">
-        <button id="downloadJsonBtn" class="btn flex-1 bg-[#06b6d4] hover:bg-[#38bdf8] px-3 py-2 rounded text-black font-semibold">Download JSON</button>
-        <button id="downloadExcelBtn" class="btn bg-[#0891b2] hover:bg-[#06b6d4] px-3 py-2 rounded text-black font-semibold">Download Excel</button>
-        <button id="generatePdfBtn" class="btn bg-[#10b981] hover:bg-[#34d399] px-3 py-2 rounded text-black font-semibold">Generate PDF</button>
-      </div>
-    </section>
-  </main>
+      const arrayBuffer = await file.arrayBuffer();
+      const dataURL = await readAsDataURL(file);
+      lastDataURL = dataURL;
+@@ -127,16 +111,12 @@ <h4 class="font-medium">GPS</h4>
+      previewWrap.classList.remove('hidden');
 
-  <footer class="max-w-7xl mx-auto mt-6 text-sm muted">Tip: Cases & CoC are stored in your browser (localStorage). Export CoC JSON for court records.</footer>
+      let tags = {};
+      try {
+        tags = await ExifReader.load(arrayBuffer);
+      } catch (err) {
+        console.warn('ExifReader failed:', err);
+        tags = {};
+      }
 
-<script>
-/* ============================
-   App state & DOM refs
-   ============================ */
-const CASES_KEY = 'mf_cases_v2';
-let cases = loadCases();
-let selectedCaseId = null;
-let currentFile = null;
-let currentMetadata = null;
-let gpsMap = null;
-let gpsMarker = null;
-let lastSha256 = '';
-let autoFillEnabled = true;
+      try { tags = await ExifReader.load(arrayBuffer); } catch(e){ tags = {}; }
+      lastMetadata = normalizeTags(tags);
+      showBasicInfo(lastMetadata, file);
 
-/* DOM */
-const caseSelect = document.getElementById('caseSelect');
-const caseTitle = document.getElementById('caseTitle');
-const caseInvestigator = document.getElementById('caseInvestigator');
-const createCaseBtn = document.getElementById('createCaseBtn');
-const clearCasesBtn = document.getElementById('clearCasesBtn');
-const caseDetails = document.getElementById('caseDetails');
+      updateBasicInfo(file);
+      renderFields(lastMetadata);
 
-const fileInput = document.getElementById('fileInput');
-const preview = document.getElementById('preview');
-const metadataOut = document.getElementById('metadata');
-const editAppsEl = document.getElementById('editApps');
-const manipNotesEl = document.getElementById('manipNotes');
-
-const gpsCard = document.getElementById('gpsCard');
-const gpsText = document.getElementById('gpsText');
-const gpsLink = document.getElementById('gpsLink');
-
-const cocActor = document.getElementById('cocActor');
-const cocAction = document.getElementById('cocAction');
-const cocNote = document.getElementById('cocNote');
-const addCocAuto = document.getElementById('addCocAuto');
-const autoFillToggle = document.getElementById('autoFillToggle');
-const cocLogEl = document.getElementById('cocLog');
-const exportCoc = document.getElementById('exportCoc');
-const clearCoc = document.getElementById('clearCoc');
-
-const actionCollect = document.getElementById('actionCollect');
-const actionAnalyze = document.getElementById('actionAnalyze');
-const actionTransfer = document.getElementById('actionTransfer');
-
-const downloadJsonBtn = document.getElementById('downloadJsonBtn');
-const downloadExcelBtn = document.getElementById('downloadExcelBtn');
-const generatePdfBtn = document.getElementById('generatePdfBtn');
-
-/* ============================
-   Utilities: storage & IDs
-   ============================ */
-function loadCases(){ try { return JSON.parse(localStorage.getItem(CASES_KEY) || '[]'); } catch { return []; } }
-function saveCases(){ localStorage.setItem(CASES_KEY, JSON.stringify(cases)); }
-function generateCaseId(){ return 'CASE-' + Date.now().toString().slice(-8); }
-
-/* ============================
-   Initialize UI
-   ============================ */
-function refreshCaseSelect(){
-  caseSelect.innerHTML = '<option value="">-- Select case --</option>';
-  for(const c of cases){
-    const opt = document.createElement('option');
-    opt.value = c.id;
-    opt.textContent = `${c.id} — ${c.title}`;
-    caseSelect.appendChild(opt);
-  }
-  renderCaseDetails();
-}
-function renderCaseDetails(){
-  if(!selectedCaseId){ caseDetails.innerHTML = '<div class="muted">No case selected.</div>'; cocLogEl.innerHTML = '(no CoC)'; cocActor.value = ''; return; }
-  const c = cases.find(x=>x.id===selectedCaseId);
-  if(!c) return;
-  caseDetails.innerHTML = `<div class="muted"><strong>Case:</strong> ${c.id} — ${c.title}<br><strong>Investigator:</strong> ${c.investigator || '(not set)'}</div>`;
-  cocLogEl.innerHTML = '';
-  if(!c.coc || c.coc.length===0) cocLogEl.textContent = '(no custody entries)';
-  else {
-    for(const e of c.coc){
-      const d = document.createElement('div');
-      d.className = 'border-b py-1 text-sm';
-      d.innerHTML = `<strong>${new Date(e.time).toLocaleString()}</strong><div>${e.actor} — ${e.action}${e.note ? ' — '+e.note : ''}</div>`;
-      cocLogEl.appendChild(d);
+      rawJson.textContent = JSON.stringify(lastMetadata, null, 2);
+      rawJsonWrap.classList.remove('hidden');
     }
-  }
-  cocActor.value = c.investigator || '';
-}
-
-/* ----------------------------
-   Case events
-   ---------------------------- */
-createCaseBtn.addEventListener('click', ()=>{
-  const title = caseTitle.value.trim(); const inv = caseInvestigator.value.trim();
-  if(!title) return alert('Enter a case title');
-  const id = generateCaseId();
-  const newCase = { id, title, investigator: inv, coc: [] };
-  cases.push(newCase); saveCases();
-  caseTitle.value=''; caseInvestigator.value='';
-  selectedCaseId = id; refreshCaseSelect();
-  caseSelect.value = id; renderCaseDetails();
-});
-clearCasesBtn.addEventListener('click', ()=>{
-  if(!confirm('Clear all saved cases (CoC will be removed)?')) return;
-  cases = []; saveCases(); selectedCaseId = null; refreshCaseSelect();
-});
-caseSelect.addEventListener('change', ()=>{ selectedCaseId = caseSelect.value || null; renderCaseDetails(); });
-
-/* ----------------------------
-   Chain-of-Custody
-   ---------------------------- */
-function addCocEntry(actor, action, note){
-  if(!selectedCaseId) return alert('Select a case first.');
-  const c = cases.find(x=>x.id===selectedCaseId);
-  if(!c) return;
-  const entry = { actor: actor || c.investigator || 'Unknown', action, note: note || '', time: new Date().toISOString() };
-  c.coc = c.coc || []; c.coc.push(entry); saveCases(); renderCaseDetails();
-}
-addCocAuto.addEventListener('click', ()=>{ addCocEntry(cocActor.value.trim(), cocAction.value, cocNote.value.trim()); cocNote.value=''; });
-exportCoc.addEventListener('click', ()=> {
-  if(!selectedCaseId) return alert('Select a case to export.');
-  const c = cases.find(x=>x.id===selectedCaseId);
-  const blob = new Blob([JSON.stringify(c, null, 2)], { type:'application/json' });
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `CoC_${c.id}.json`; a.click(); URL.revokeObjectURL(a.href);
-});
-clearCoc.addEventListener('click', ()=>{
-  if(!selectedCaseId) return alert('Select a case.');
-  if(!confirm('Clear CoC for this case?')) return;
-  const c = cases.find(x=>x.id===selectedCaseId); c.coc = []; saveCases(); renderCaseDetails();
-});
-actionCollect.addEventListener('click', ()=> addCocEntry(null, 'Collected', 'Quick action'));
-actionAnalyze.addEventListener('click', ()=> addCocEntry(null, 'Analyzed', 'Quick action'));
-actionTransfer.addEventListener('click', ()=> addCocEntry(null, 'Transferred', 'Quick action'));
-
-autoFillToggle.addEventListener('click', ()=> {
-  autoFillEnabled = !autoFillEnabled;
-  autoFillToggle.textContent = autoFillEnabled ? 'Auto-fill Import (ON)' : 'Auto-fill Import (OFF)';
-  autoFillToggle.classList.toggle('bg-blue-800');
-});
-
-/* ============================
-   File input & Metadata
-   ============================ */
-fileInput.addEventListener('change', async (ev) => {
-  const f = ev.target.files[0]; if(!f) return;
-  currentFile = f;
-  preview.src = URL.createObjectURL(f);
-
-  // read arrayBuffer and EXIF
-  const arrayBuffer = await f.arrayBuffer();
-  let tags = {};
-  try { tags = ExifReader.load(arrayBuffer, { expanded: true }); } catch(e) { tags = {}; console.warn('Exif read failed', e); }
-  currentMetadata = tags;
-
-  // compute hashes
-  const md5 = await computeMD5(arrayBuffer);
-  const sha1 = await computeSubtleHash(arrayBuffer, 'SHA-1');
-  const sha256 = await computeSubtleHash(arrayBuffer, 'SHA-256');
-  lastSha256 = sha256;
-
-  // format and show metadata
-  metadataOut.textContent = formatMetadata(tags, f, { md5, sha1, sha256 });
-
-  // show GPS if available
-  handleGPS(tags);
-
-  // detect editing apps and heuristics
-  const detected = detectEditingApps(tags);
-  editAppsEl.textContent = detected.length ? detected.join(', ') : 'None detected';
-  manipNotesEl.textContent = computeManipulationNotes(tags, { md5, sha1, sha256 });
-
-  // auto-add CoC import entry if enabled and case selected
-  if(autoFillEnabled && selectedCaseId) {
-    const note = `Imported ${f.name} (${(f.size/1024).toFixed(1)} KB) SHA-256: ${sha256}`;
-    addCocEntry(null, 'Received (Import)', note);
-  }
-});
-
-/* ----------------------------
-   Hash helpers
-   ---------------------------- */
-async function computeSubtleHash(arrayBuffer, algo) {
-  try {
-    const digest = await crypto.subtle.digest(algo, arrayBuffer);
-    return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2,'0')).join('');
-  } catch(e) { console.warn('subtle digest error', e); return algo + '_err'; }
-}
-async function computeMD5(arrayBuffer) {
-  try {
-    // CryptoJS expects WordArray
-    const wordArray = CryptoJS.lib.WordArray.create(arrayBuffer);
-    return CryptoJS.MD5(wordArray).toString(CryptoJS.enc.Hex);
-  } catch(e) { console.warn('MD5 error', e); return 'md5_err'; }
-}
-
-/* ----------------------------
-   Metadata formatting
-   ---------------------------- */
-function formatMetadata(tags, file, hashes={}) {
-  const get = (k) => {
-    const v = tags[k];
-    if (!v) return null;
-    if (typeof v === 'object') return v.description ?? v.value ?? JSON.stringify(v);
-    return String(v);
-  };
-
-  let out = '';
-  out += `--- GENERAL INFO ---
-File: ${file.name}
-Size: ${(file.size/1024).toFixed(1)} KB
-MIME: ${file.type || 'N/A'}
-Modified (FS): ${new Date(file.lastModified).toLocaleString()}
-
-`;
-
-  out += `--- HASHES ---
-MD5: ${hashes.md5 || 'N/A'}
-SHA-1: ${hashes.sha1 || 'N/A'}
-SHA-256: ${hashes.sha256 || 'N/A'}
-
-`;
-
-  out += `--- CAMERA DETAILS ---
-Make: ${get('Make') || 'N/A'}
-Model: ${get('Model') || 'N/A'}
-Camera Serial: ${get('BodySerialNumber') || get('SerialNumber') || 'N/A'}
-Lens: ${get('LensModel') || 'N/A'}
-
-`;
-
-  out += `--- IMAGE DETAILS ---
-Resolution: ${get('ExifImageWidth') || '?'} x ${get('ExifImageHeight') || '?'}
-Orientation: ${get('Orientation') || 'N/A'}
-Color Space: ${get('ColorSpace') || 'N/A'}
-Compression: ${get('Compression') || 'N/A'}
-
-`;
-
-  out += `--- DATES ---
-Original (DateTimeOriginal): ${get('DateTimeOriginal') || 'N/A'}
-Modified (ModifyDate / DateTime): ${get('ModifyDate') || get('DateTime') || 'N/A'}
-
-`;
-
-  const sw = get('Software') || get('ProcessingSoftware') || get('CreatorTool') || get('ImageHistory') || null;
-  if (sw) {
-    out += `--- SOFTWARE TAGS ---
-Software / Processing: ${sw}
-
-`;
-  }
-
-  if (tags.GPSLatitude && tags.GPSLongitude) {
-    const lat = (tags.GPSLatitude.description || tags.GPSLatitude.value);
-    const lon = (tags.GPSLongitude.description || tags.GPSLongitude.value);
-    out += `--- GPS ---
-Latitude: ${lat}
-Longitude: ${lon}
-
-`;
-  }
-
-  return out;
-}
-
-/* ----------------------------
-   GPS display
-   ---------------------------- */
-function handleGPS(tags) {
-  if(!tags.GPSLatitude || !tags.GPSLongitude){ gpsCard.classList.add('hidden'); return; }
-  let lat = tags.GPSLatitude.description || tags.GPSLatitude.value;
-  let lon = tags.GPSLongitude.description || tags.GPSLongitude.value;
-  // parse numbers out if necessary
-  lat = parseFloat(String(lat).replace(/[^\d\.\-]/g, ''));
-  lon = parseFloat(String(lon).replace(/[^\d\.\-]/g, ''));
-  if(!isFinite(lat) || !isFinite(lon)){ gpsCard.classList.add('hidden'); return; }
-  gpsCard.classList.remove('hidden');
-  gpsText.innerHTML = `Latitude: ${lat.toFixed(6)}<br>Longitude: ${lon.toFixed(6)}`;
-  gpsLink.href = `https://www.google.com/maps?q=${lat},${lon}`;
-
-  if(!gpsMap){
-    gpsMap = L.map('map').setView([lat, lon], 15);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution: '&copy; OpenStreetMap contributors'}).addTo(gpsMap);
-    gpsMarker = L.marker([lat, lon]).addTo(gpsMap);
-  } else {
-    gpsMap.setView([lat, lon], 15);
-    if(gpsMarker) gpsMarker.setLatLng([lat, lon]); else gpsMarker = L.marker([lat, lon]).addTo(gpsMap);
-  }
-}
-
-/* ----------------------------
-   Editing / Manipulation detection heuristics
-   ---------------------------- */
-function detectEditingApps(tags){
-  // Collect likely fields
-  const keys = ['Software','ProcessingSoftware','CreatorTool','ImageHistory','ApplicationRecord','HostComputer'];
-  let raw = '';
-  for(const k of keys){
-    if(tags[k]){
-      const v = tags[k]; raw += (v.description ?? v.value ?? String(v)) + ' ';
+@@ -157,136 +137,37 @@ <h4 class="font-medium">GPS</h4>
+        out[k] = (t && (t.description || t.value || t.format || t.tagType)) || t;
+      }
+      try {
+        if (tags.GPSLatitude && tags.GPSLongitude) {
+        if(tags.GPSLatitude && tags.GPSLongitude){
+          const lat = toDecimal(tags.GPSLatitude.value || tags.GPSLatitude);
+          const lon = toDecimal(tags.GPSLongitude.value || tags.GPSLongitude);
+          const latRef = (tags.GPSLatitudeRef && tags.GPSLatitudeRef.value) || (tags.GPSLatitudeRef && tags.GPSLatitudeRef.description) || '';
+          const lonRef = (tags.GPSLongitudeRef && tags.GPSLongitudeRef.value) || (tags.GPSLongitudeRef && tags.GPSLongitudeRef.description) || '';
+          if (latRef === 'S' || latRef === 's') { out['_latitude'] = -Math.abs(lat); } else out['_latitude'] = lat;
+          if (lonRef === 'W' || lonRef === 'w') { out['_longitude'] = -Math.abs(lon); } else out['_longitude'] = lon;
+          const latRef = (tags.GPSLatitudeRef && tags.GPSLatitudeRef.value) || '';
+          const lonRef = (tags.GPSLongitudeRef && tags.GPSLongitudeRef.value) || '';
+          out['_latitude'] = (latRef==='S')?-Math.abs(lat):lat;
+          out['_longitude'] = (lonRef==='W')?-Math.abs(lon):lon;
+        }
+      } catch(e){}
+      return out;
     }
-  }
-  if(!raw.trim()) return [];
-  const s = raw.toLowerCase();
-  const known = [
-    {name:'Adobe Photoshop', terms:['photoshop','adobe']},
-    {name:'Adobe Lightroom', terms:['lightroom']},
-    {name:'GIMP', terms:['gimp']},
-    {name:'Snapseed', terms:['snapseed']},
-    {name:'Instagram', terms:['instagram']},
-    {name:'Canva', terms:['canva']},
-    {name:'PicsArt', terms:['picsart']},
-    {name:'Affinity Photo', terms:['affinity']},
-    {name:'Paint.NET', terms:['paint.net','paintnet']},
-    {name:'Pixelmator', terms:['pixelmator']},
-    {name:'Mobile Photo App', terms:['photos','camera roll','iphone','android']},
-    {name:'Camera Maker App', terms:['canon','nikon','sony','fujifilm','panasonic','olympus']}
-  ];
-  const found = [];
-  for(const k of known){
-    for(const t of k.terms){ if(s.includes(t)){ found.push(k.name); break; } }
-  }
-  return Array.from(new Set(found.length?found:[raw.trim()]));
-}
 
-function computeManipulationNotes(tags, hashes){
-  const notes = [];
-  // 1) Software tag present?
-  const software = tags.Software || tags.ProcessingSoftware || tags.CreatorTool;
-  if(software) notes.push('Software/processing tag present — check application used.');
-  else notes.push('No software tag found (could be stripped).');
+    function toDecimal(input) {
+      if (!input) return null;
+      if (typeof input === 'number') return input;
+      if (Array.isArray(input)) {
+        const [d, m, s] = input.map(n => Number(n));
+        if (isNaN(d)) return null;
+        return d + (m || 0)/60 + (s || 0)/3600;
+    function toDecimal(input){
+      if(!input) return null;
+      if(typeof input==='number') return input;
+      if(Array.isArray(input)){
+        const [d,m,s]=input.map(Number);
+        return d + (m||0)/60 + (s||0)/3600;
+      }
+      if (typeof input === 'string') {
+        const parts = input.split(',').map(p => p.trim());
+        const nums = parts.map(p => {
+          const frac = p.split('/');
+          if (frac.length === 2) return Number(frac[0]) / Number(frac[1]);
+          return Number(p);
+        });
+        if (nums.length === 1) return nums[0];
+        return nums[0] + (nums[1] || 0)/60 + (nums[2] || 0)/3600;
+      if(typeof input==='string'){
+        const parts = input.split(',').map(p=>p.trim());
+        const nums = parts.map(p=>{ const frac=p.split('/'); return frac.length===2?Number(frac[0])/Number(frac[1]):Number(p); });
+        return nums[0] + (nums[1]||0)/60 + (nums[2]||0)/3600;
+      }
+      const asNum = Number(input);
+      return isNaN(asNum) ? null : asNum;
+      const n=Number(input); return isNaN(n)?null:n;
+    }
 
-  // 2) Date inconsistencies
-  try {
-    const orig = (tags.DateTimeOriginal && (tags.DateTimeOriginal.description || tags.DateTimeOriginal.value));
-    const mod = (tags.ModifyDate && (tags.ModifyDate.description || tags.ModifyDate.value)) || (tags.DateTime && (tags.DateTime.description || tags.DateTime.value));
-    if(orig && mod){
-      const o = Date.parse(String(orig).replace(/:/g,'-'));
-      const m = Date.parse(String(mod).replace(/:/g,'-'));
-      if(!isNaN(o) && !isNaN(m)){
-        if(m > o + 60000) notes.push('ModifyDate is later than DateTimeOriginal — image may have been edited/modified after capture.');
+    function renderFields(meta) {
+      fieldsTable.innerHTML = '';
+      const fields = [
+        ['Camera Make', meta.Make || meta['Image Make'] || meta['maker'] ],
+        ['Camera Model', meta.Model || meta['Image Model'] ],
+        ['Date Taken', meta.DateTimeOriginal || meta.DateTime ],
+        ['Exposure', meta.ExposureTime || meta['Exposure Time'] ],
+        ['Aperture', meta.FNumber || meta.ApertureValue ],
+        ['ISO', meta.ISO || meta.ISOSpeedRatings ],
+        ['Focal Length', meta.FocalLength ],
+        ['Software', meta.Software],
+      ];
+      fields.forEach(([k,v]) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = <td class="text-xs text-slate-600 py-1">${k}</td><td class="text-sm font-medium py-1">${v || '—'}</td>;
+        fieldsTable.appendChild(tr);
+      });
+
+      if (meta._latitude && meta._longitude) {
+        gpsWrap.classList.remove('hidden');
+        gpsText.textContent = ${meta._latitude.toFixed(6)}, ${meta._longitude.toFixed(6)};
+        gpsLink.href = https://www.google.com/maps/search/?api=1&query=${meta._latitude},${meta._longitude};
+
+        if (!map) {
+          map = L.map('map').setView([meta._latitude, meta._longitude], 13);
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+          }).addTo(map);
+          mapMarker = L.marker([meta._latitude, meta._longitude]).addTo(map);
+        } else {
+          map.setView([meta._latitude, meta._longitude], 13);
+          if (mapMarker) map.removeLayer(mapMarker);
+          mapMarker = L.marker([meta._latitude, meta._longitude]).addTo(map);
+        }
+      } else {
+        gpsWrap.classList.add('hidden');
       }
     }
-  } catch(e){}
 
-  // 3) Thumbnail presence
-  const thumbPresent = !!(tags['JPEGThumbnail'] || tags['Thumbnail']);
-  if(!thumbPresent) notes.push('No embedded thumbnail found (thumbnail absence can indicate metadata removal).');
+    function showBasicInfo(meta, file) {
+    function updateBasicInfo(file){
+      const sizeKB = (file.size/1024).toFixed(1);
+      const dimText = preview.naturalWidth ? ${preview.naturalWidth}×${preview.naturalHeight}px : '';
+      basicInfo.textContent = ${file.type || 'image'} • ${sizeKB} KB ${dimText ? '• ' + dimText : ''};
+      const modDate = new Date(file.lastModified).toLocaleString();
+      basicInfo.textContent = `Type: ${file.type} • Size: ${sizeKB} KB • Modified: ${modDate}`;
+    }
 
-  // 4) Hash presence
-  notes.push(`SHA-256 (computed): ${hashes.sha256 || 'N/A'}`);
+    downloadMetaBtn.addEventListener('click', () => {
+      if (!lastMetadata) return alert('No metadata parsed yet');
+      const blob = new Blob([JSON.stringify(lastMetadata, null, 2)], {type: 'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = ${lastFileName}_metadata.json;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+    });
 
-  return notes.join(' ');
-}
+    copyMetaBtn.addEventListener('click', async () => {
+      if (!lastMetadata) return alert('No metadata parsed yet');
+      try {
+        await navigator.clipboard.writeText(JSON.stringify(lastMetadata, null, 2));
+        alert('Metadata copied to clipboard');
+      } catch (e) {
+        alert('Copy failed — your browser may block clipboard access');
+      }
+    });
 
-/* ----------------------------
-   Exports: JSON, Excel, PDF
-   ---------------------------- */
-downloadJsonBtn.addEventListener('click', ()=>{
-  if(!currentFile || !currentMetadata) return alert('Analyze a file first.');
-  const payload = {
-    fileName: currentFile.name,
-    fileSize: currentFile.size,
-    metadata: currentMetadata,
-    caseId: selectedCaseId || null,
-    timestamp: new Date().toISOString()
-  };
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type:'application/json' });
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${currentFile.name.replace(/\.[^/.]+$/,'')}_metadata.json`; a.click(); URL.revokeObjectURL(a.href);
-});
+    stripMetaBtn.addEventListener('click', () => {
+      if (!lastDataURL) return alert('No image loaded');
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        canvas.toBlob((blob) => {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url; a.download = ${lastFileName}_nometa.jpg;
+          document.body.appendChild(a); a.click(); a.remove();
+          URL.revokeObjectURL(url);
+        }, 'image/jpeg', 0.95);
+      };
+      img.src = lastDataURL;
+    });
 
-downloadExcelBtn.addEventListener('click', ()=>{
-  if(!currentFile || !currentMetadata) return alert('Analyze a file first.');
-  // convert pretty metadata (text) into rows
-  const lines = (metadataOut.textContent||'').split('\n');
-  const rows = lines.map(l => [l]);
-  const ws = XLSX.utils.aoa_to_sheet(rows);
-  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Metadata');
-  const fname = `${currentFile.name.replace(/\.[^/.]+$/,'')}_metadata.xlsx`;
-  XLSX.writeFile(wb, fname);
-});
-
-generatePdfBtn.addEventListener('click', async ()=>{
-  if(!currentFile || !currentMetadata) return alert('Analyze a file first.');
-  // create a clean report element
-  const report = document.createElement('div');
-  report.style.width = '900px';
-  report.style.padding = '20px';
-  report.style.background = 'white';
-  report.style.color = 'black';
-  report.innerHTML = `<h1>META FORENSIC - Forensic Report</h1>
-    <div><strong>Case:</strong> ${selectedCaseId || '(no case selected)'}</div>
-    <div><strong>File:</strong> ${currentFile.name}</div>
-    <hr/>
-    <h3>Metadata</h3>
-    <pre style="white-space:pre-wrap;">${metadataOut.textContent}</pre>
-    <hr/>
-    <h3>Detected Editing / Notes</h3>
-    <div>${editAppsEl.textContent}</div>
-    <div style="margin-top:8px;">${manipNotesEl.textContent}</div>
-    <hr/>
-    <h3>Chain-of-Custody</h3>
-    <div style="font-size:12px;">${selectedCaseId ? (cases.find(c=>c.id===selectedCaseId).coc.map(e=>`<div><strong>${new Date(e.time).toLocaleString()}</strong> — ${e.actor} — ${e.action} ${e.note?('— '+e.note):''}</div>`).join('') ) : '(no case selected)'}</div>
-  `;
-  document.body.appendChild(report);
-  const canvas = await html2canvas(report, { scale:2 });
-  const imgData = canvas.toDataURL('image/jpeg', 0.9);
-  const { jsPDF } = window.jspdf;
-  const pdf = new jsPDF({ unit:'px', format:[canvas.width, canvas.height] });
-  pdf.addImage(imgData, 'JPEG', 0, 0, canvas.width, canvas.height);
-  const filename = `forensic_report_${selectedCaseId || 'report'}.pdf`;
-  pdf.save(filename);
-  document.body.removeChild(report);
-});
-
-/* ----------------------------
-   Detect editing apps from tags
-   ---------------------------- */
-// (already defined above via detectEditingApps)
-
-/* ----------------------------
-   Init
-   ---------------------------- */
-function init(){
-  refreshCaseSelect();
-  autoFillToggle.textContent = 'Auto-fill Import (ON)';
-  autoFillToggle.classList.add('bg-blue-800');
-}
-init();
-
-</script>
+    window.addEventListener('paste', (ev) => {
+      const items = ev.clipboardData && ev.clipboardData.items;
+      if (!items) return;
+      for (const it of items) {
+        if (it.type && it.type.startsWith('image')) {
+          const f = it.getAsFile();
+          if (f) handleFiles([f]);
+          break;
+        }
+      }
+    });
+  </script>
 </body>
 </html>
+    function render
