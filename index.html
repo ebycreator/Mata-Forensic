@@ -1,242 +1,789 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Meta Forensic</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>META FORENSIC — Premium</title>
+
+  <!-- Tailwind (for convenience) -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/exifreader/dist/exif-reader.min.js"></script>
+
+  <!-- ExifReader -->
+  <script src="https://cdn.jsdelivr.net/npm/exifreader@4.12.0/dist/exif-reader.min.js"></script>
+
+  <!-- CryptoJS for MD5 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+
+  <!-- SheetJS for Excel -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+  <!-- Leaflet for map -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- jsPDF + html2canvas for PDF export -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+
   <style>
+    /* Glassmorphic forensic theme (dark/blue glass) */
+    :root{
+      --glass-bg: rgba(255,255,255,0.06);
+      --glass-border: rgba(255,255,255,0.08);
+      --accent: #4f46e5;
+      --muted: rgba(255,255,255,0.75);
+    }
+
+    html,body { height:100%; }
     body {
-      /* Digital forensic background */
-      background: url('https://images.unsplash.com/photo-1616401785984-ded538da8c10?auto=format&fit=crop&w=1920&q=80') no-repeat center center fixed;
-      background-size: cover;
+      margin:0;
+      background-image: url('https://images.unsplash.com/photo-1542744173-8e7e53415bb0?auto=format&fit=crop&w=1600&q=60');
+      background-size:cover;
+      background-position:center;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      color: white;
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
     }
-    .dropzone { transition: background-color .15s ease; }
-    #map { height: 200px; border-radius: 0.5rem; margin-top: 0.5rem; }
-    .card-header { background-color: rgba(30,64,175,0.1); padding: 0.5rem 1rem; border-radius: 0.5rem 0.5rem 0 0; font-weight: 600; }
-    .card { background-color: rgba(255,255,255,0.9); border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-    /* Minimal metadata card design */
-    .metadata-card {
-      background-color: rgba(255,255,255,0.95);
-      border: 1px solid rgba(0,0,0,0.1);
-      border-radius: 0.5rem;
-      padding: 0.5rem 1rem;
-      margin-bottom: 0.5rem;
-      display: flex;
-      justify-content: space-between;
-      font-size: 0.875rem;
+
+    /* center app */
+    .app {
+      max-width: 1200px;
+      margin: 30px auto;
+      padding: 20px;
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      gap: 20px;
     }
-    .metadata-key { font-weight: 600; color: #1e40af; }
-    .metadata-value { color: #334155; text-align: right; word-break: break-word; }
+
+    /* sidebar glass */
+    .panel {
+      background: linear-gradient(180deg, rgba(13,27,49,0.45), rgba(2,6,23,0.45));
+      border: 1px solid var(--glass-border);
+      backdrop-filter: blur(8px) saturate(120%);
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 8px 30px rgba(2,6,23,0.6), inset 0 1px 0 rgba(255,255,255,0.02);
+    }
+
+    .brand {
+      font-weight:800;
+      font-size:20px;
+      letter-spacing:0.6px;
+      color: #e6eefb;
+    }
+    .subtitle { color: var(--muted); font-size:13px; margin-top:4px; }
+
+    /* dropzone */
+    .dropzone {
+      border: 1px dashed rgba(255,255,255,0.12);
+      border-radius:10px;
+      padding: 18px;
+      cursor:pointer;
+      transition: box-shadow .18s ease, transform .08s ease;
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+    }
+    .dropzone:hover { box-shadow: 0 8px 30px rgba(74, 85, 255, 0.12); transform: translateY(-2px); }
+    .dropzone.active { border-color: rgba(79,70,229,0.9); box-shadow: 0 12px 40px rgba(79,70,229,0.12); }
+
+    /* accordion */
+    .accordion { border-radius:10px; overflow:hidden; border:1px solid rgba(255,255,255,0.06); }
+    .acc-item + .acc-item { border-top:1px solid rgba(255,255,255,0.03); }
+    .acc-head {
+      display:flex; align-items:center; gap:12px;
+      padding:12px 16px; cursor:pointer;
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      transition: background .12s ease;
+    }
+    .acc-head:hover { background: rgba(255,255,255,0.02); }
+    .acc-title { font-weight:700; color: #eaf0ff; }
+    .acc-icon { width:20px; height:20px; opacity:0.92; }
+    .acc-arrow { margin-left:auto; transition: transform .18s ease; opacity:0.9; }
+    .acc-body { padding:12px 16px; background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.00)); display:none; }
+
+    /* metadata card layout */
+    .meta-row {
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:10px;
+      align-items:center;
+      padding:10px;
+      border-radius:8px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      border: 1px solid rgba(255,255,255,0.02);
+      margin-bottom:8px;
+    }
+    .meta-key { color:#dbe9ff; font-weight:700; font-size:13px; }
+    .meta-val { color: #cfe0ff; text-align:right; font-size:13px; word-break:break-word; }
+
+    /* small controls */
+    .btn {
+      padding:8px 12px; border-radius:8px; font-weight:700; cursor:pointer; border:none;
+      background: linear-gradient(90deg, var(--accent), #06b6d4);
+      color: #021124;
+      box-shadow: 0 8px 20px rgba(79,70,229,0.12);
+    }
+    .btn-ghost { background: transparent; border:1px solid rgba(255,255,255,0.06); color:var(--muted); padding:7px 10px; }
+
+    /* preview */
+    .preview-img { width:160px; height:160px; object-fit:contain; border-radius:10px; border:1px solid rgba(255,255,255,0.04); background: rgba(255,255,255,0.02); }
+
+    /* map container in glass */
+    #map { height:170px; border-radius:8px; overflow:hidden; margin-top:8px; }
+
+    /* small muted */
+    .small-muted { font-size:12px; color:var(--muted); }
+
+    /* responsive */
+    @media (max-width: 980px) {
+      .app { grid-template-columns: 1fr; padding:16px; }
+      #map { height:160px; }
+    }
   </style>
 </head>
-<body class="text-slate-900 min-h-screen p-6">
-  <div class="max-w-6xl mx-auto">
-    <header class="mb-6 text-center">
-      <h1 class="text-4xl font-bold text-black">Meta Forensic</h1>
-      <p class="text-lg mt-1 text-black">Upload a picture to view metadata</p>
-    </header>
+<body>
+  <div class="app">
+    <!-- SIDEBAR / CONTROLS -->
+    <div class="panel">
+      <div class="brand">META FORENSIC</div>
+      <div class="subtitle">Premium Glass Forensic Dashboard</div>
 
-    <main class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <!-- Upload Section -->
-      <section>
-        <div id="drop" class="dropzone card text-center border-2 border-dashed border-slate-300">
-          <input id="fileInput" type="file" accept="image/*" class="hidden" />
-          <div id="dropInner">
-            <p class="mb-2">Drag & drop an image here, or</p>
-            <button id="chooseBtn" class="px-4 py-2 rounded bg-indigo-600 text-white">Choose file</button>
-            <p class="mt-3 text-xs text-slate-500">Supports JPEG (EXIF), PNG (limited metadata), HEIC (browser dependent).</p>
+      <hr class="my-4 border-white/6"/>
+
+      <div id="dropzone" class="dropzone" title="Drag & drop or click to choose">
+        <input id="fileInput" type="file" accept="image/*" style="display:none" />
+        <div class="flex items-center gap-4">
+          <!-- camera icon -->
+          <svg class="acc-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="6" width="20" height="14" rx="2" stroke="#cfe0ff" stroke-width="1.2"/><path d="M8 6l1.5-2h5L16 6" stroke="#cfe0ff" stroke-width="1.2"/></svg>
+          <div>
+            <div class="font-semibold">Upload Image</div>
+            <div class="small-muted">JPEG preferred. Drag & drop or click to choose.</div>
           </div>
         </div>
+        <div class="mt-3 flex gap-2">
+          <button id="chooseBtn" class="btn">Choose file</button>
+          <button id="clearBtn" class="btn-ghost">Clear</button>
+        </div>
+      </div>
 
-        <div id="previewWrap" class="hidden card">
-          <div class="flex gap-4 items-start">
-            <img id="preview" alt="preview" class="w-48 h-48 object-contain rounded border" />
-            <div class="flex-1">
-              <div class="card-header">📷 General Info</div>
-              <p id="basicInfo" class="text-sm text-slate-700 mt-2"></p>
-              <div class="mt-3 flex gap-2">
-                <button id="downloadMetaBtn" class="px-3 py-1 rounded border">Download JSON</button>
-                <button id="copyMetaBtn" class="px-3 py-1 rounded border">Copy Metadata</button>
-              </div>
+      <div class="mt-4">
+        <div class="small-muted">Quick actions</div>
+        <div class="mt-2 flex gap-2">
+          <button id="downloadJsonBtn" class="btn-ghost">Download JSON</button>
+          <button id="downloadExcelBtn" class="btn-ghost">Download Excel</button>
+        </div>
+      </div>
+
+      <hr class="my-4 border-white/6"/>
+
+      <div>
+        <div class="font-semibold mb-2">Case Management</div>
+        <input id="caseTitle" placeholder="Case title" class="w-full p-2 rounded bg-transparent border border-white/6 mb-2 text-white" />
+        <input id="caseInvestigator" placeholder="Investigator" class="w-full p-2 rounded bg-transparent border border-white/6 mb-2 text-white" />
+        <input id="caseVictim" placeholder="Suspect / Victim" class="w-full p-2 rounded bg-transparent border border-white/6 mb-2 text-white" />
+        <div class="flex gap-2">
+          <button id="createCaseBtn" class="btn">Create Case</button>
+          <button id="clearCasesBtn" class="btn-ghost">Clear cases</button>
+        </div>
+
+        <div class="mt-3">
+          <label class="small-muted">Select case</label>
+          <select id="caseSelect" class="w-full mt-1 p-2 rounded bg-transparent border border-white/6 text-white"></select>
+        </div>
+
+        <div class="mt-3">
+          <div class="small-muted">Chain-of-Custody</div>
+          <div id="cocLog" class="mt-2 small-muted" style="max-height:120px;overflow:auto;background:rgba(255,255,255,0.02);padding:8px;border-radius:8px;"></div>
+          <div class="mt-2 flex gap-2">
+            <button id="exportCocBtn" class="btn-ghost">Export CoC</button>
+            <button id="addCocBtn" class="btn-ghost">Add Entry</button>
+          </div>
+        </div>
+      </div>
+
+      <hr class="my-4 border-white/6"/>
+      <div class="small-muted">Tips</div>
+      <ul class="small-muted mt-2 list-disc pl-4">
+        <li>Use JPEG for best EXIF results</li>
+        <li>Create case before importing to auto-log</li>
+        <li>PDF includes metadata & ELA snapshot</li>
+      </ul>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div>
+      <!-- Header + preview -->
+      <div class="panel mb-4">
+        <div class="flex items-start gap-4">
+          <img id="preview" class="preview-img" src="" alt="preview" />
+          <div class="flex-1">
+            <div class="flex items-center gap-3">
+              <div class="text-xl font-bold">Forensic Analysis</div>
+              <div id="caseBadge" class="ml-auto small-muted"></div>
+            </div>
+            <div id="fileInfo" class="small-muted mt-2">No file loaded</div>
+
+            <div class="mt-3 flex gap-2">
+              <button id="genPdfBtn" class="btn">Export PDF Report</button>
+              <button id="copyBtn" class="btn-ghost">Copy Metadata</button>
             </div>
           </div>
         </div>
-      </section>
+      </div>
 
-      <!-- Metadata Section -->
-      <aside>
-        <div id="gpsWrap" class="hidden card">
-          <div class="card-header">🌍 GPS & Map</div>
-          <p id="gpsText" class="text-sm text-slate-700 mt-2"></p>
-          <a id="gpsLink" target="_blank" class="text-indigo-600 text-sm underline">Open in Google Maps</a>
-          <div id="map"></div>
+      <!-- Accordion -->
+      <div class="accordion panel">
+        <!-- FILE INFO -->
+        <div class="acc-item">
+          <div class="acc-head" data-acc="file">
+            <!-- file icon -->
+            <svg class="acc-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="#cfe0ff" stroke-width="1.2"/><path d="M14 3v5h5" stroke="#cfe0ff" stroke-width="1.2"/></svg>
+            <div class="acc-title">File Information</div>
+            <svg class="acc-arrow" width="18" height="18" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" stroke="#cfe0ff" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <div class="acc-body" id="body-file">
+            <!-- file metadata rows -->
+            <div id="fileMetaRows"></div>
+          </div>
         </div>
 
-        <div id="rawJsonWrap" class="hidden card">
-          <div class="card-header">🗂️ Metadata</div>
+        <!-- CAMERA -->
+        <div class="acc-item">
+          <div class="acc-head" data-acc="camera">
+            <svg class="acc-icon" viewBox="0 0 24 24" fill="none"><path d="M4 7h3l2-3h6l2 3h3v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z" stroke="#cfe0ff" stroke-width="1.2"/></svg>
+            <div class="acc-title">Camera & Capture</div>
+            <svg class="acc-arrow" width="18" height="18" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" stroke="#cfe0ff" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <div class="acc-body" id="body-camera">
+            <div id="cameraMetaRows"></div>
+          </div>
         </div>
-      </aside>
-    </main>
+
+        <!-- GPS -->
+        <div class="acc-item">
+          <div class="acc-head" data-acc="gps">
+            <svg class="acc-icon" viewBox="0 0 24 24" fill="none"><path d="M12 2l3 7 7 3-7 3-3 7-3-7-7-3 7-3z" stroke="#cfe0ff" stroke-width="1.2"/></svg>
+            <div class="acc-title">GPS / Location</div>
+            <svg class="acc-arrow" width="18" height="18" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" stroke="#cfe0ff" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <div class="acc-body" id="body-gps">
+            <div id="gpsMetaRows"></div>
+            <div id="map" class="mt-2"></div>
+            <div class="mt-2 small-muted"><a id="openMaps" href="#" target="_blank" class="text-cyan-200 underline">Open in Google Maps</a></div>
+          </div>
+        </div>
+
+        <!-- HASHES -->
+        <div class="acc-item">
+          <div class="acc-head" data-acc="hash">
+            <svg class="acc-icon" viewBox="0 0 24 24" fill="none"><path d="M3 12h18M3 6h18M3 18h18" stroke="#cfe0ff" stroke-width="1.2"/></svg>
+            <div class="acc-title">Hashes & Integrity</div>
+            <svg class="acc-arrow" width="18" height="18" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" stroke="#cfe0ff" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <div class="acc-body" id="body-hash">
+            <div id="hashRows"></div>
+          </div>
+        </div>
+
+        <!-- SOFTWARE / EDIT INFO -->
+        <div class="acc-item">
+          <div class="acc-head" data-acc="software">
+            <svg class="acc-icon" viewBox="0 0 24 24" fill="none"><path d="M12 3v18" stroke="#cfe0ff" stroke-width="1.2"/><path d="M3 7h18" stroke="#cfe0ff" stroke-width="1.2"/></svg>
+            <div class="acc-title">Software / Editing</div>
+            <svg class="acc-arrow" width="18" height="18" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" stroke="#cfe0ff" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <div class="acc-body" id="body-software">
+            <div id="softwareRows"></div>
+            <div class="mt-2 small-muted" id="manipNotes">—</div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Footer controls -->
+      <div class="mt-4 flex gap-2">
+        <button id="downloadReportBtn" class="btn">Download Forensic PDF</button>
+        <button id="downloadExcelFull" class="btn-ghost">Export Excel</button>
+      </div>
+
+    </div>
   </div>
 
-  <script>
-    const drop = document.getElementById('drop');
-    const fileInput = document.getElementById('fileInput');
-    const chooseBtn = document.getElementById('chooseBtn');
-    const preview = document.getElementById('preview');
-    const previewWrap = document.getElementById('previewWrap');
-    const rawJsonWrap = document.getElementById('rawJsonWrap');
-    const gpsWrap = document.getElementById('gpsWrap');
-    const gpsText = document.getElementById('gpsText');
-    const gpsLink = document.getElementById('gpsLink');
-    const downloadMetaBtn = document.getElementById('downloadMetaBtn');
-    const copyMetaBtn = document.getElementById('copyMetaBtn');
-    const basicInfo = document.getElementById('basicInfo');
+<script>
+/* -------------------------------
+  State & Helpers
+---------------------------------*/
+let currentFile = null;
+let currentArrayBuffer = null;
+let currentExif = {};
+let currentNormalized = {};
+let caseList = JSON.parse(localStorage.getItem('mf_cases_v2') || '[]');
+let selectedCase = null;
+let cocAuto = true; // auto fill CoC on import
+let map = null, mapMarker = null;
 
-    let lastMetadata = null;
-    let lastDataURL = null;
-    let lastFileName = 'image';
-    let map = null;
-    let mapMarker = null;
+const $ = id => document.getElementById(id);
+const chooseBtn = $('chooseBtn');
+const fileInput = $('fileInput');
+const dropzone = $('dropzone');
+const preview = $('preview');
+const fileInfo = $('fileInfo');
 
-    chooseBtn.addEventListener('click', () => fileInput.click());
-    fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
+/* Populate case select */
+function refreshCases(){
+  const sel = $('caseSelect');
+  sel.innerHTML = '<option value="">(none)</option>';
+  for(const c of caseList){
+    const o = document.createElement('option'); o.value = c.id; o.textContent = `${c.id} — ${c.title}`;
+    sel.appendChild(o);
+  }
+  // set text badge
+  $('caseBadge').textContent = selectedCase ? `Case: ${selectedCase}` : '';
+  renderCoCDisplay();
+}
+refreshCases();
 
-    ['dragenter','dragover'].forEach(evt => drop.addEventListener(evt, (ev) => { ev.preventDefault(); drop.classList.add('bg-slate-50'); }));
-    ['dragleave','drop'].forEach(evt => drop.addEventListener(evt, (ev) => { ev.preventDefault(); drop.classList.remove('bg-slate-50'); }));
-    drop.addEventListener('drop', (ev) => { const f = ev.dataTransfer.files && ev.dataTransfer.files[0]; if (f) handleFiles([f]); });
+/* Create case */
+$('createCaseBtn').addEventListener('click', ()=>{
+  const title = $('caseTitle').value.trim(); const inv = $('caseInvestigator').value.trim(); const person = $('caseVictim').value.trim();
+  if(!title) return alert('Enter case title');
+  const id = 'CASE-' + Date.now().toString().slice(-6);
+  caseList.push({ id, title, investigator: inv, person, coc: [] });
+  localStorage.setItem('mf_cases_v2', JSON.stringify(caseList));
+  selectedCase = id;
+  $('caseSelect').value = id;
+  $('caseTitle').value=''; $('caseInvestigator').value=''; $('caseVictim').value='';
+  refreshCases();
+});
+$('clearCasesBtn').addEventListener('click', ()=>{
+  if(!confirm('Clear all saved cases?')) return;
+  caseList = []; localStorage.removeItem('mf_cases_v2'); selectedCase = null; refreshCases();
+});
+$('caseSelect').addEventListener('change', (e)=>{
+  selectedCase = e.target.value || null; refreshCases();
+});
 
-    async function handleFiles(files) {
-      if (!files || files.length === 0) return;
-      const file = files[0];
-      lastFileName = (file.name || 'image').replace(/\.[^/.]+$/, '');
-      const arrayBuffer = await file.arrayBuffer();
-      const dataURL = await readAsDataURL(file);
-      lastDataURL = dataURL;
+/* CoC display / add / export */
+function renderCoCDisplay(){
+  const el = $('cocLog'); el.innerHTML = '';
+  if(!selectedCase){ el.textContent = '(no case selected)'; return; }
+  const c = caseList.find(x=>x.id===selectedCase);
+  if(!c || !c.coc || c.coc.length===0) { el.textContent = '(no custody entries)'; return; }
+  for(const e of c.coc){
+    const d = document.createElement('div'); d.className='mb-2';
+    d.innerHTML = `<div style="font-weight:700">${new Date(e.time).toLocaleString()}</div><div class="small-muted">${e.actor} — ${e.action} ${e.note ? ' — ' + e.note : ''}</div>`;
+    el.appendChild(d);
+  }
+}
+$('addCocBtn').addEventListener('click', ()=>{
+  if(!selectedCase) return alert('Select a case first');
+  const actor = (caseList.find(x=>x.id===selectedCase).investigator) || 'Unknown';
+  const action = prompt('Enter action (Collected / Received / Analyzed / Stored / Other):', 'Collected') || 'Other';
+  const note = prompt('Optional note:','') || '';
+  const c = caseList.find(x=>x.id===selectedCase); c.coc = c.coc || []; c.coc.push({ actor, action, note, time: new Date().toISOString() });
+  localStorage.setItem('mf_cases_v2', JSON.stringify(caseList));
+  renderCoCDisplay();
+});
+$('exportCocBtn').addEventListener('click', ()=>{
+  if(!selectedCase) return alert('Select a case first');
+  const c = caseList.find(x=>x.id===selectedCase);
+  const blob = new Blob([JSON.stringify(c, null,2)], { type:'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `CoC_${c.id}.json`; a.click(); URL.revokeObjectURL(a.href);
+});
 
-      preview.src = dataURL;
-      previewWrap.classList.remove('hidden');
+/* Drag & drop & choose */
+chooseBtn.addEventListener('click', ()=>fileInput.click());
+fileInput.addEventListener('change', (e)=> {
+  const f = e.target.files && e.target.files[0];
+  if(f) processFile(f);
+});
+['dragenter','dragover'].forEach(ev => dropzone.addEventListener(ev, (e)=>{ e.preventDefault(); dropzone.classList.add('active'); }));
+['dragleave','drop'].forEach(ev => dropzone.addEventListener(ev, (e)=>{ e.preventDefault(); dropzone.classList.remove('active'); }));
+dropzone.addEventListener('drop', (e)=>{ e.preventDefault(); dropzone.classList.remove('active'); const f = e.dataTransfer.files && e.dataTransfer.files[0]; if(f) processFile(f); });
 
-      let tags = {};
-      try { tags = await ExifReader.load(arrayBuffer); } catch(e){ tags = {}; }
-      lastMetadata = normalizeTags(tags);
+$('clearBtn').addEventListener('click', ()=>{
+  currentFile = null; currentArrayBuffer = null; currentExif = {}; currentNormalized = {};
+  preview.src = ''; fileInfo.textContent = 'No file loaded';
+  $('fileMetaRows').innerHTML=''; $('cameraMetaRows').innerHTML=''; $('gpsMetaRows').innerHTML=''; $('hashRows').innerHTML=''; $('softwareRows').innerHTML=''; $('manipNotes').textContent='—';
+  if(map){ map.remove(); map=null; }
+});
 
-      updateBasicInfo(file);
-      renderFields(lastMetadata);
-      renderMetadataCards(lastMetadata);
+/* Main file processing */
+async function processFile(file){
+  currentFile = file;
+  $('fileInfo').textContent = `Loading ${file.name} ...`;
+  preview.src = ''; // show preview when ready
+
+  // read arrayBuffer & dataURL
+  const ab = await file.arrayBuffer(); currentArrayBuffer = ab;
+  const dataURL = await readAsDataURL(file);
+  preview.src = dataURL;
+
+  // parse exif (expanded true recommended)
+  let tags = {};
+  try{ tags = ExifReader.load(ab, { expanded: true }); } catch(err){ console.warn('EXIF read failed', err); tags = {}; }
+  currentExif = tags;
+  currentNormalized = normalizeTags(tags);
+
+  // compute hashes
+  const md5 = computeMD5(ab);
+  const sha1 = await computeSubtleHash(ab, 'SHA-1');
+  const sha256 = await computeSubtleHash(ab, 'SHA-256');
+
+  // update UI
+  renderFileInfo(file);
+  renderFileMetaRows(currentNormalized);
+  renderCameraMeta(currentNormalized);
+  renderGPS(currentNormalized);
+  renderHashRows({ md5, sha1, sha256 });
+  renderSoftwareInfo(currentExif, { md5, sha1, sha256 });
+
+  // auto CoC entry if case selected
+  if(selectedCase){
+    const c = caseList.find(x=>x.id===selectedCase);
+    const note = `Imported ${file.name} (${(file.size/1024).toFixed(1)} KB) SHA256:${sha256}`;
+    c.coc = c.coc || []; c.coc.push({ actor: c.investigator || 'Unknown', action: 'Imported', note, time: new Date().toISOString() });
+    localStorage.setItem('mf_cases_v2', JSON.stringify(caseList));
+    renderCoCDisplay();
+  }
+
+  $('fileInfo').textContent = `${file.name} • ${(file.size/1024).toFixed(1)} KB • ${file.type || 'N/A'}`;
+}
+
+/* readAsDataURL */
+function readAsDataURL(file){ return new Promise((res,rej)=>{ const fr = new FileReader(); fr.onload = ()=>res(fr.result); fr.onerror = rej; fr.readAsDataURL(file); }); }
+
+/* NORMALIZE exif tags */
+function normalizeTags(tags){
+  const out = {};
+  for(const k in tags){
+    const t = tags[k];
+    // prefer description then value
+    if(t && typeof t === 'object' && ('description' in t || 'value' in t)) out[k] = (t.description ?? t.value);
+    else out[k] = t;
+  }
+  // Try to assign common aliases
+  try{
+    if(tags.Model) out['Camera Model'] = tags.Model.description ?? tags.Model.value ?? tags.Model;
+    if(tags.BodySerialNumber) out['Camera Serial Number'] = tags.BodySerialNumber.description ?? tags.BodySerialNumber.value ?? tags.BodySerialNumber;
+    if(tags.SerialNumber && !out['Camera Serial Number']) out['Camera Serial Number'] = tags.SerialNumber.description ?? tags.SerialNumber.value ?? tags.SerialNumber;
+    if(tags.DateTimeOriginal) out['Original Date & Time'] = tags.DateTimeOriginal.description ?? tags.DateTimeOriginal.value ?? tags.DateTimeOriginal;
+    if(tags.ModifyDate) out['Modified Date & Time'] = tags.ModifyDate.description ?? tags.ModifyDate.value ?? tags.ModifyDate;
+    if(tags.DateTime && !out['Modified Date & Time']) out['Modified Date & Time'] = tags.DateTime.description ?? tags.DateTime.value ?? tags.DateTime;
+    if(tags.GPSLatitude && tags.GPSLongitude){
+      const lat = toDecimal(tags.GPSLatitude.value ?? tags.GPSLatitude);
+      const lon = toDecimal(tags.GPSLongitude.value ?? tags.GPSLongitude);
+      const latRef = (tags.GPSLatitudeRef && (tags.GPSLatitudeRef.value ?? tags.GPSLatitudeRef)) || '';
+      const lonRef = (tags.GPSLongitudeRef && (tags.GPSLongitudeRef.value ?? tags.GPSLongitudeRef)) || '';
+      out['_latitude'] = (latRef==='S') ? -Math.abs(lat) : lat;
+      out['_longitude'] = (lonRef==='W') ? -Math.abs(lon) : lon;
     }
+  }catch(e){}
+  return out;
+}
 
-    function readAsDataURL(file) {
-      return new Promise((res, rej) => {
-        const fr = new FileReader();
-        fr.onload = () => res(fr.result);
-        fr.onerror = rej;
-        fr.readAsDataURL(file);
-      });
-    }
+/* helpers: toDecimal */
+function toDecimal(input){
+  if(!input) return null;
+  if(typeof input === 'number') return input;
+  if(Array.isArray(input)) {
+    const [d,m,s] = input.map(Number);
+    return d + (m||0)/60 + (s||0)/3600;
+  }
+  if(typeof input === 'string'){
+    const parts = input.split(',').map(p=>p.trim());
+    const nums = parts.map(p=>{ const frac = p.split('/'); return frac.length===2 ? Number(frac[0])/Number(frac[1]) : Number(p); });
+    return nums[0] + (nums[1]||0)/60 + (nums[2]||0)/3600;
+  }
+  const n = Number(input); return isNaN(n)?null:n;
+}
 
-    function normalizeTags(tags) {
-      const out = {};
-      for (const k in tags) {
-        const t = tags[k];
-        out[k] = (t && (t.description || t.value || t.format || t.tagType)) || t;
-      }
-      try {
-        if(tags.GPSLatitude && tags.GPSLongitude){
-          const lat = toDecimal(tags.GPSLatitude.value || tags.GPSLatitude);
-          const lon = toDecimal(tags.GPSLongitude.value || tags.GPSLongitude);
-          const latRef = (tags.GPSLatitudeRef && tags.GPSLatitudeRef.value) || '';
-          const lonRef = (tags.GPSLongitudeRef && tags.GPSLongitudeRef.value) || '';
-          out['_latitude'] = (latRef==='S')?-Math.abs(lat):lat;
-          out['_longitude'] = (lonRef==='W')?-Math.abs(lon):lon;
-        }
-      } catch(e){}
-      return out;
-    }
+/* RENDERERS */
+function renderFileInfo(file){
+  const container = $('fileMetaRows'); container.innerHTML = '';
+  const rows = [
+    ['File name', file.name],
+    ['Type', file.type || 'N/A'],
+    ['Size', (file.size/1024).toFixed(1) + ' KB'],
+    ['Last modified', new Date(file.lastModified).toLocaleString()]
+  ];
+  for(const [k,v] of rows){
+    container.appendChild(makeMetaRow(k, v));
+  }
+}
+function renderFileMetaRows(metadata){
+  // show some generic EXIF -> show as grouped
+  const container = $('fileMetaRows');
+  // Camera manufacturer & model
+  if(metadata.Make || metadata['Camera Model']){
+    if(metadata.Make) container.appendChild(makeMetaRow('Make', metadata.Make));
+    if(metadata['Camera Model'] || metadata.Model) container.appendChild(makeMetaRow('Camera Model', metadata['Camera Model'] ?? metadata.Model));
+  }
+  // Dimensions
+  if(metadata.ExifImageWidth || metadata.ExifImageHeight) container.appendChild(makeMetaRow('Dimensions', `${metadata.ExifImageWidth || '-'} x ${metadata.ExifImageHeight || '-'}`));
+  // Dates
+  if(metadata['Original Date & Time']) container.appendChild(makeMetaRow('Original Date & Time', metadata['Original Date & Time']));
+  if(metadata['Modified Date & Time']) container.appendChild(makeMetaRow('Modified Date & Time', metadata['Modified Date & Time']));
+}
 
-    function toDecimal(input){
-      if(!input) return null;
-      if(typeof input==='number') return input;
-      if(Array.isArray(input)){
-        const [d,m,s]=input.map(Number);
-        return d + (m||0)/60 + (s||0)/3600;
-      }
-      if(typeof input==='string'){
-        const parts = input.split(',').map(p=>p.trim());
-        const nums = parts.map(p=>{ const frac=p.split('/'); return frac.length===2?Number(frac[0])/Number(frac[1]):Number(p); });
-        return nums[0] + (nums[1]||0)/60 + (nums[2]||0)/3600;
-      }
-      const n=Number(input); return isNaN(n)?null:n;
-    }
+function renderCameraMeta(metadata){
+  const wrap = $('cameraMetaRows'); wrap.innerHTML = '';
+  const keys = [
+    ['Camera Model', metadata['Camera Model'] ?? metadata.Model],
+    ['Camera Serial Number', metadata['Camera Serial Number'] ?? metadata.SerialNumber ?? metadata.BodySerialNumber],
+    ['Lens Model', metadata.LensModel ?? metadata['LensModel']],
+    ['Exposure Time', metadata.ExposureTime ?? metadata['ExposureTime']],
+    ['F-Number', metadata.FNumber ?? metadata['FNumber']],
+    ['ISO', metadata.ISO || metadata.ISOSpeedRatings]
+  ];
+  for(const [k,v] of keys){
+    if(v) wrap.appendChild(makeMetaRow(k, String(v)));
+  }
+}
 
-    function updateBasicInfo(file){
-      const sizeKB = (file.size/1024).toFixed(1);
-      const modDate = new Date(file.lastModified).toLocaleString();
-      basicInfo.textContent = `Type: ${file.type} • Size: ${sizeKB} KB • Modified: ${modDate}`;
-    }
+function renderGPS(metadata){
+  const wrap = $('gpsMetaRows'); wrap.innerHTML = '';
+  if(metadata._latitude && metadata._longitude){
+    wrap.appendChild(makeMetaRow('Latitude', metadata._latitude.toFixed(6)));
+    wrap.appendChild(makeMetaRow('Longitude', metadata._longitude.toFixed(6)));
+    $('openMaps').href = `https://www.google.com/maps?q=${metadata._latitude},${metadata._longitude}`;
 
-    function renderFields(metadata) {
-      // GPS Map
-      if (metadata._latitude && metadata._longitude) {
-        gpsWrap.classList.remove('hidden');
-        gpsText.textContent = `Latitude: ${metadata._latitude}, Longitude: ${metadata._longitude}`;
-        gpsLink.href = `https://www.google.com/maps?q=${metadata._latitude},${metadata._longitude}`;
-        if(!map){
-          map = L.map('map').setView([metadata._latitude, metadata._longitude], 13);
-          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; OpenStreetMap contributors'
-          }).addTo(map);
-          mapMarker = L.marker([metadata._latitude, metadata._longitude]).addTo(map);
-        } else {
-          map.setView([metadata._latitude, metadata._longitude], 13);
-          mapMarker.setLatLng([metadata._latitude, metadata._longitude]);
-        }
+    // initialize Leaflet map
+    setTimeout(()=>{ // small delay helps map render inside accordion
+      if(!map){
+        map = L.map('map', { attributionControl:false }).setView([metadata._latitude, metadata._longitude], 14);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        mapMarker = L.marker([metadata._latitude, metadata._longitude]).addTo(map);
       } else {
-        gpsWrap.classList.add('hidden');
+        map.setView([metadata._latitude, metadata._longitude], 14);
+        if(mapMarker) mapMarker.setLatLng([metadata._latitude, metadata._longitude]);
+        else mapMarker = L.marker([metadata._latitude, metadata._longitude]).addTo(map);
       }
+    }, 120);
+  } else {
+    wrap.appendChild(makeMetaRow('GPS', 'Not available'));
+    if(map){ map.remove(); map = null; }
+  }
+}
 
-      // Buttons
-      downloadMetaBtn.onclick = () => {
-        const blob = new Blob([JSON.stringify(metadata, null, 2)], {type:'application/json'});
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = lastFileName + '_metadata.json';
-        a.click();
-      };
-      copyMetaBtn.onclick = () => {
-        navigator.clipboard.writeText(JSON.stringify(metadata, null, 2));
-        alert('Metadata copied to clipboard');
-      };
+function renderHashRows(hashes){
+  const wrap = $('hashRows'); wrap.innerHTML = '';
+  wrap.appendChild(makeMetaRow('MD5', hashes.md5 || '-'));
+  wrap.appendChild(makeMetaRow('SHA-1', hashes.sha1 || '-'));
+  wrap.appendChild(makeMetaRow('SHA-256', hashes.sha256 || '-'));
+}
+
+function renderSoftwareInfo(tags, hashes){
+  const wrap = $('softwareRows'); wrap.innerHTML = '';
+  const apps = detectEditingApps(tags);
+  wrap.appendChild(makeMetaRow('Detected Apps', apps.length ? apps.join(', ') : 'None detected'));
+  // Notes
+  const notes = computeManipulationNotes(tags, hashes);
+  $('manipNotes').textContent = notes || 'No significant heuristic flags.';
+}
+
+/* small util to create a row element */
+function makeMetaRow(key, val){
+  const el = document.createElement('div'); el.className = 'meta-row';
+  const k = document.createElement('div'); k.className = 'meta-key'; k.textContent = key;
+  const v = document.createElement('div'); v.className = 'meta-val'; v.textContent = val ?? '-';
+  el.appendChild(k); el.appendChild(v); return el;
+}
+
+/* Detect editing apps heuristics */
+function detectEditingApps(tags){
+  const keys = ['Software','ProcessingSoftware','CreatorTool','ImageHistory','ApplicationRecord','HostComputer'];
+  let raw = '';
+  for(const k of keys){
+    if(tags[k]){
+      const t = tags[k];
+      raw += (t.description ?? t.value ?? String(t)) + ' ';
     }
+  }
+  if(!raw.trim()) return [];
+  const s = raw.toLowerCase();
+  const known = [
+    {name:'Adobe Photoshop', terms:['photoshop','adobe']},
+    {name:'Adobe Lightroom', terms:['lightroom']},
+    {name:'GIMP', terms:['gimp']},
+    {name:'Snapseed', terms:['snapseed']},
+    {name:'Instagram', terms:['instagram']},
+    {name:'Canva', terms:['canva']},
+    {name:'PicsArt', terms:['picsart']},
+    {name:'Affinity Photo', terms:['affinity']},
+    {name:'Paint.NET', terms:['paint.net','paintnet']}
+  ];
+  const found = [];
+  for(const k of known){
+    for(const t of k.terms) if(s.includes(t)) { found.push(k.name); break; }
+  }
+  return Array.from(new Set(found.length ? found : [raw.trim()]));
+}
 
-    function renderMetadataCards(metadata) {
-      rawJsonWrap.innerHTML = '<div class="card-header">🗂️ Metadata</div>'; // Clear previous content
-      rawJsonWrap.classList.remove('hidden');
+/* Heuristic manipulation notes */
+function computeManipulationNotes(tags, hashes){
+  const notes = [];
+  const sw = tags.Software || tags.ProcessingSoftware || tags.CreatorTool;
+  if(sw) notes.push('Processing/Software tag present — check listed application.');
+  else notes.push('No software/processing tag found (may be stripped).');
 
-      for (const key in metadata) {
-        if (!metadata.hasOwnProperty(key)) continue;
-        const value = metadata[key];
-
-        const card = document.createElement('div');
-        card.className = 'metadata-card';
-
-        const k = document.createElement('div');
-        k.className = 'metadata-key';
-        k.textContent = key;
-
-        const v = document.createElement('div');
-        v.className = 'metadata-value';
-        v.textContent = String(value);
-
-        card.appendChild(k);
-        card.appendChild(v);
-        rawJsonWrap.appendChild(card);
-      }
+  try{
+    const orig = (tags.DateTimeOriginal && (tags.DateTimeOriginal.description ?? tags.DateTimeOriginal.value));
+    const mod = (tags.ModifyDate && (tags.ModifyDate.description ?? tags.ModifyDate.value)) || (tags.DateTime && (tags.DateTime.description ?? tags.DateTime.value));
+    if(orig && mod){
+      const o = Date.parse(String(orig).replace(/:/g,'-'));
+      const m = Date.parse(String(mod).replace(/:/g,'-'));
+      if(!isNaN(o) && !isNaN(m) && m > o + 60000) notes.push('ModifyDate later than DateTimeOriginal — possible edit after capture.');
     }
-  </script>
+  }catch(e){}
+
+  const thumb = !!(tags.JPEGThumbnail || tags.Thumbnail);
+  if(!thumb) notes.push('No embedded thumbnail present (possible metadata removal).');
+
+  notes.push(`SHA-256: ${hashes.sha256 ?? 'N/A'}`);
+  return notes.join(' ');
+}
+
+/* Hashing helpers */
+/* MD5 via CryptoJS */
+function computeMD5(arrayBuffer){
+  try {
+    const wa = CryptoJS.lib.WordArray.create(arrayBuffer);
+    return CryptoJS.MD5(wa).toString(CryptoJS.enc.Hex);
+  } catch(e){ console.warn(e); return 'md5_err'; }
+}
+async function computeSubtleHash(arrayBuffer, algo){
+  try {
+    const digest = await crypto.subtle.digest(algo, arrayBuffer);
+    return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2,'0')).join('');
+  } catch(e){ console.warn(e); return algo + '_err'; }
+}
+
+/* Copy metadata to clipboard */
+$('copyBtn').addEventListener('click', ()=>{
+  if(!currentFile) return alert('Analyze a file first.');
+  const payload = {
+    file: { name: currentFile.name, size: currentFile.size, type: currentFile.type },
+    metadata: currentNormalized,
+    caseId: selectedCase,
+  };
+  navigator.clipboard.writeText(JSON.stringify(payload, null,2)).then(()=> alert('Metadata copied'));
+});
+
+/* Download JSON */
+$('downloadJsonBtn').addEventListener('click', ()=>{
+  if(!currentFile) return alert('Analyze a file first.');
+  const payload = {
+    file: { name: currentFile.name, size: currentFile.size, type: currentFile.type },
+    metadata: currentNormalized,
+    caseId: selectedCase,
+  };
+  const blob = new Blob([JSON.stringify(payload, null,2)], { type:'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${currentFile.name.replace(/\.[^/.]+$/,'')}_metadata.json`; a.click(); URL.revokeObjectURL(a.href);
+});
+
+/* Excel export (basic two-column sheet from displayed metadata) */
+$('downloadExcelBtn').addEventListener('click', ()=>{
+  if(!currentFile) return alert('Analyze a file first.');
+  const rows = [];
+  // flatten currentNormalized
+  for(const k in currentNormalized) rows.push([k, String(currentNormalized[k])]);
+  const ws = XLSX.utils.aoa_to_sheet([['Key','Value'], ...rows]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Metadata');
+  XLSX.writeFile(wb, `${currentFile.name.replace(/\.[^/.]+$/,'')}_metadata.xlsx`);
+});
+
+/* Full Excel export */
+$('downloadExcelFull').addEventListener('click', ()=>{
+  if(!currentFile) return alert('Analyze a file first.');
+  const rows = [['Key','Value']];
+  rows.push(['File Name', currentFile.name]);
+  rows.push(['File Size (KB)', (currentFile.size/1024).toFixed(1)]);
+  // metadata
+  for(const k in currentNormalized) rows.push([k, String(currentNormalized[k])]);
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Full Report');
+  XLSX.writeFile(wb, `${currentFile.name.replace(/\.[^/.]+$/,'')}_forensic.xlsx`);
+});
+
+/* PDF report generator */
+$('genPdfBtn').addEventListener('click', async ()=>{
+  if(!currentFile) return alert('Analyze a file first.');
+  await generatePdfReport();
+});
+$('downloadReportBtn').addEventListener('click', async ()=>{
+  if(!currentFile) return alert('Analyze a file first.');
+  await generatePdfReport();
+});
+
+async function generatePdfReport(){
+  // Build a printable div
+  const div = document.createElement('div');
+  div.style.width = '900px';
+  div.style.padding = '18px';
+  div.style.background = 'white';
+  div.style.color = 'black';
+  div.style.fontFamily = 'Arial, sans-serif';
+  const caseText = selectedCase ? (()=>{ const c = caseList.find(x=>x.id===selectedCase); return `${c.id} — ${c.title} — Investigator: ${c.investigator || '(n/a)'}`; })() : '(no case)';
+  const metaText = Object.keys(currentNormalized || {}).map(k => `<div><strong>${k}:</strong> ${currentNormalized[k]}</div>`).join('');
+  div.innerHTML = `
+    <h2 style="margin:0 0 8px 0;">META FORENSIC — Forensic Report</h2>
+    <div style="font-size:13px;margin-bottom:8px;"><strong>Case:</strong> ${caseText}</div>
+    <div style="font-size:13px;margin-bottom:8px;"><strong>File:</strong> ${currentFile.name} — ${(currentFile.size/1024).toFixed(1)} KB</div>
+    <div style="display:flex;gap:12px;">
+      <div style="flex:1;">
+        <div style="font-weight:700;margin-bottom:6px;">Metadata</div>
+        <div style="font-size:12px;">${metaText}</div>
+      </div>
+      <div style="width:300px;">
+        <div style="font-weight:700;margin-bottom:6px;">Preview</div>
+        <img src="${preview.src}" style="max-width:100%;border:1px solid #ddd;padding:4px;background:#fff"/>
+      </div>
+    </div>
+    <div style="margin-top:10px;font-weight:700;">Manipulation Notes</div>
+    <div style="font-size:12px;margin-top:6px;">${$('manipNotes').textContent}</div>
+    <div style="margin-top:10px;font-weight:700;">Chain-of-Custody</div>
+    <div style="font-size:12px;margin-top:6px;">${selectedCase ? caseList.find(c=>c.id===selectedCase).coc.map(e=>`<div><strong>${new Date(e.time).toLocaleString()}</strong> — ${e.actor} — ${e.action} ${e.note?('— '+e.note):''}</div>`).join('') : '(no case selected)'}</div>
+  `;
+  document.body.appendChild(div);
+  const canvas = await html2canvas(div, { scale: 2 });
+  const imgData = canvas.toDataURL('image/jpeg', 0.9);
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({ unit: 'px', format: [canvas.width, canvas.height] });
+  pdf.addImage(imgData, 'JPEG', 0, 0, canvas.width, canvas.height);
+  pdf.save(`${currentFile.name.replace(/\.[^/.]+$/,'')}_forensic_report.pdf`);
+  document.body.removeChild(div);
+}
+
+/* Accordion behavior */
+document.querySelectorAll('.acc-head').forEach(h => {
+  h.addEventListener('click', ()=>{
+    const key = h.dataset.acc;
+    const body = $('body-' + key);
+    const arrow = h.querySelector('.acc-arrow');
+    if(body.style.display === 'block'){
+      body.style.display = 'none'; arrow.style.transform = '';
+    } else {
+      // collapse all others
+      document.querySelectorAll('.acc-body').forEach(b=>b.style.display='none');
+      document.querySelectorAll('.acc-arrow').forEach(a=>a.style.transform='');
+      body.style.display = 'block'; arrow.style.transform = 'rotate(180deg)';
+    }
+  });
+});
+
+/* utility: subtleCrypto hash & md5 already defined above */
+/* utility to convert ArrayBuffer to WordArray for CryptoJS would be internal (we used create directly) */
+
+/* Initialize small default state */
+(function boot(){
+  // open first accordion by default
+  const firstHead = document.querySelector('.acc-head[data-acc="file"]');
+  if(firstHead) firstHead.click();
+  refreshCases();
+})();
+
+</script>
 </body>
 </html>
