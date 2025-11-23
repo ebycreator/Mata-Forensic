@@ -3,22 +3,22 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>META FORENSIC — Cyber Dark</title>
+  <title>META FORENSIC — Forensic Image Analyzer</title>
 
-  <!-- Tailwind for utility classes (CDN) -->
+  <!-- Tailwind for quick styling -->
   <script src="https://cdn.tailwindcss.com"></script>
 
-  <!-- ExifReader (fixed working CDN) -->
+  <!-- ExifReader -->
   <script src="https://cdn.jsdelivr.net/npm/exifreader@4.12.0/dist/exif-reader.min.js"></script>
 
-  <!-- Leaflet for maps -->
+  <!-- Leaflet -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <!-- CryptoJS for MD5 -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
 
-  <!-- SheetJS for Excel export -->
+  <!-- SheetJS for Excel -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
   <!-- jsPDF + html2canvas for PDF -->
@@ -26,507 +26,834 @@
   <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
 
   <style>
-    /* Cyber dark forensic theme */
+    /* Premium dark forensic theme */
     :root{
-      --bg: #06070a;
-      --panel: rgba(10,12,16,0.85);
-      --card: rgba(7,10,18,0.9);
-      --neon: #00bfff;
-      --muted: #8b98a6;
-      --glass: rgba(255,255,255,0.02);
+      --bg: #071126;
+      --card: rgba(255,255,255,0.04);
+      --muted: #9aa8b8;
+      --accent: #35b3ff;
+      --glass: rgba(255,255,255,0.03);
     }
-    html,body{height:100%; background: linear-gradient(180deg,#02040a 0%, #071226 60%), url('https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1920&q=60') center/cover fixed no-repeat; color:#e6eef6; font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial;}
-    .app {
-      max-width:1100px;
-      margin:28px auto;
-      padding:20px;
-      display:grid;
-      grid-template-columns: 1fr;
-      gap:16px;
+    html,body { height:100%; background: linear-gradient(180deg,#041021 0%, #08182a 60%), url('https://images.unsplash.com/photo-1616401785984-ded538da8c10?auto=format&fit=crop&w=1920&q=80') center/cover no-repeat; color:#e6f0f7; font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial; }
+    .container { max-width:1200px; margin:28px auto; padding:20px; }
+    .topbar { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:18px; }
+    .brand { display:flex; gap:12px; align-items:center;}
+    .brand .logo { width:56px; height:56px; border-radius:10px; background:linear-gradient(135deg,var(--accent),#8be1ff); display:flex; align-items:center; justify-content:center; color:#021022; font-weight:800; font-size:18px; box-shadow:0 6px 24px rgba(0,0,0,0.6);}
+    .card { background: var(--card); border: 1px solid rgba(255,255,255,0.04); padding:14px; border-radius:12px; box-shadow: 0 6px 20px rgba(2,8,23,0.6); }
+    .muted { color:var(--muted); }
+    .controls .btn { background:var(--accent); color:#021022; padding:8px 12px; border-radius:8px; font-weight:700; cursor:pointer; }
+    .dropzone { border:2px dashed rgba(255,255,255,0.06); padding:18px; border-radius:10px; text-align:center; cursor:pointer; }
+    .preview-img { max-width:260px; max-height:260px; border-radius:8px; border:1px solid rgba(255,255,255,0.06); }
+    /* accordion */
+    .accordion-item { border-radius:10px; overflow:hidden; margin-bottom:10px; border:1px solid rgba(255,255,255,0.03); }
+    .accordion-header { display:flex; justify-content:space-between; align-items:center; padding:10px 14px; cursor:pointer; background: linear-gradient(180deg, rgba(255,255,255,0.01), transparent); }
+    .accordion-body { padding:12px 14px; border-top:1px solid rgba(255,255,255,0.02); display:none; }
+    .k { color:var(--muted); font-weight:600; }
+    .kv { color:#e6f0f7; text-align:right; word-break:break-word; }
+    .metadata-grid { display:grid; grid-template-columns: 1fr 1fr; gap:8px; }
+    .mapbox { height:260px; border-radius:8px; overflow:hidden; border:1px solid rgba(255,255,255,0.03); }
+    .small-muted { color:var(--muted); font-size:13px; }
+    .hash-code { font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Roboto Mono,monospace; font-size:12px; color:#bfe9ff; background:rgba(255,255,255,0.02); padding:6px;border-radius:6px; word-break:break-all; }
+    @media (max-width: 900px) {
+      .metadata-grid { grid-template-columns: 1fr; }
+      .topbar { flex-direction:column; align-items:flex-start; gap:12px; }
     }
-    header.app-header{
-      display:flex; align-items:center; gap:14px; justify-content:space-between;
-      background: linear-gradient(90deg, rgba(0,0,0,0.45), rgba(8,10,20,0.55));
-      border-radius:12px; padding:14px 18px; box-shadow: 0 8px 30px rgba(0,0,0,0.6);
-    }
-    header h1{ font-size:1.5rem; letter-spacing:0.6px; color:var(--neon); text-shadow:0 2px 12px rgba(0,191,255,0.08); margin:0;}
-    header p { margin:0; color:var(--muted); font-size:0.95rem; }
-
-    .panel {
-      background: var(--panel);
-      border-radius:10px;
-      padding:14px;
-      box-shadow: 0 10px 30px rgba(2,6,23,0.6), inset 0 1px 0 rgba(255,255,255,0.02);
-      border: 1px solid rgba(0,191,255,0.06);
-    }
-
-    .grid-2{ display:grid; grid-template-columns: 1fr 420px; gap:18px; }
-    @media (max-width: 980px){ .grid-2{ grid-template-columns: 1fr; } }
-
-    /* Drop zone */
-    .dropzone {
-      border: 1px dashed rgba(0,191,255,0.18);
-      padding:18px;
-      border-radius:10px;
-      background: linear-gradient(180deg, rgba(255,255,255,0.01), transparent);
-      transition: all .15s ease;
-      cursor: pointer;
-      text-align:center;
-    }
-    .dropzone:hover{ transform: translateY(-2px); box-shadow: 0 10px 30px rgba(0,191,255,0.03); }
-    .dropzone.drag { background: linear-gradient(90deg, rgba(0,191,255,0.02), rgba(0,191,255,0.01)); border-color: rgba(0,191,255,0.35); }
-
-    /* Preview */
-    #preview { width:100%; max-width:360px; border-radius:8px; border:1px solid rgba(255,255,255,0.04); background:var(--glass); }
-
-    /* Metadata area */
-    .metadata-grid{
-      display:grid;
-      grid-template-columns: repeat(2,minmax(0,1fr));
-      gap:10px;
-      margin-top:12px;
-    }
-    .metadata-card{
-      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
-      border-radius:8px;
-      padding:10px 12px;
-      border:1px solid rgba(0,191,255,0.04);
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:8px;
-      min-height:44px;
-    }
-    .metadata-key{ color:#cfeefd; font-weight:700; font-size:0.9rem; }
-    .metadata-value{ color:#dbeefe; text-align:right; font-size:0.9rem; word-break:break-word; max-width: 260px; }
-
-    /* Badges / hash */
-    .hash-row{ display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
-    .hash-badge{ background: rgba(0,191,255,0.06); padding:8px 10px; border-radius:8px; border:1px solid rgba(0,191,255,0.06); color:var(--neon); font-weight:600; font-size:0.85rem; }
-
-    /* Controls */
-    .controls{ display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
-    .btn { padding:8px 12px; border-radius:8px; border:none; cursor:pointer; font-weight:700; color:#051122; }
-    .btn-primary{ background: linear-gradient(90deg,var(--neon), #58d6ff); box-shadow:0 6px 18px rgba(0,191,255,0.08); }
-    .btn-ghost{ background:transparent; border:1px solid rgba(255,255,255,0.04); color:var(--neon); font-weight:600; }
-
-    /* small muted */
-    .muted { color: var(--muted); font-size:0.9rem; }
-
-    /* card header */
-    .card-title{ font-weight:800; color:#bfefff; display:flex; align-items:center; gap:8px; font-size:1rem; }
-
-    /* map card */
-    #map{ height:220px; border-radius:8px; overflow:hidden; border:1px solid rgba(255,255,255,0.02); }
-
-    /* footer */
-    footer{ text-align:center; color:var(--muted); margin-top:6px; font-size:0.9rem; }
   </style>
 </head>
 <body>
-  <div class="app">
-    <header class="app-header panel">
-      <div>
-        <h1>META FORENSIC</h1>
-        <p class="muted">Digital forensic image metadata & triage — Cyber Dark theme</p>
-      </div>
-      <div class="muted">Ready • <span id="status">idle</span></div>
-    </header>
-
-    <div class="panel grid-2">
-      <!-- Left: uploader & preview & controls -->
-      <div>
-        <div id="drop" class="dropzone" title="Drag & drop image or click to choose">
-          <input id="fileInput" type="file" accept="image/*" class="hidden" />
-          <div>
-            <div style="font-weight:800; color:var(--neon); font-size:1.1rem;">Drop image / Click to upload</div>
-            <div class="muted" style="margin-top:6px;">JPEG (EXIF preferred). PNG, HEIC (browser dependent).</div>
-            <div style="margin-top:10px;">
-              <button id="chooseBtn" class="btn btn-primary">Choose File</button>
-            </div>
-          </div>
+  <div class="container">
+    <div class="topbar">
+      <div class="brand">
+        <div class="logo">MF</div>
+        <div>
+          <div style="font-size:18px;font-weight:800">META FORENSIC</div>
+          <div class="small-muted">Digital Forensic — Image Metadata & Triage</div>
         </div>
-
-        <div id="previewWrap" class="panel" style="margin-top:14px; display:none;">
-          <div style="display:flex; gap:12px; align-items:flex-start;">
-            <img id="preview" alt="preview" />
-            <div style="flex:1;">
-              <div class="card-title">Image Preview & General Info</div>
-              <div id="basicInfo" class="muted" style="margin-top:6px;">—</div>
-
-              <div class="hash-row" id="hashRow" aria-hidden="false" style="margin-top:12px;">
-                <div class="hash-badge">MD5: <span id="md5Val" style="margin-left:8px; color:#dff8ff; font-weight:700;">—</span></div>
-                <div class="hash-badge">SHA-1: <span id="sha1Val" style="margin-left:8px; color:#dff8ff; font-weight:700;">—</span></div>
-                <div class="hash-badge">SHA-256: <span id="sha256Val" style="margin-left:8px; color:#dff8ff; font-weight:700;">—</span></div>
-              </div>
-
-              <div class="controls" style="margin-top:12px;">
-                <button id="downloadMetaBtn" class="btn btn-ghost">Download JSON</button>
-                <button id="downloadExcelBtn" class="btn btn-ghost">Download Excel</button>
-                <button id="generatePdfBtn" class="btn btn-primary">Generate PDF Report</button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div id="manipNotes" class="muted" style="margin-top:10px;">Heuristic notes will appear here after analysis.</div>
       </div>
 
-      <!-- Right: metadata & map -->
-      <div>
-        <div class="card-title">Metadata</div>
-        <div id="rawJsonWrap" class="panel" style="margin-top:10px; display:none;">
-          <div id="metaTop" style="display:flex; gap:12px; justify-content:space-between; align-items:center;">
-            <div class="muted">Flattened metadata (click to copy values)</div>
-            <div>
-              <button id="copyMetaBtn" class="btn btn-ghost">Copy Metadata</button>
-            </div>
-          </div>
-
-          <div id="metaGrid" class="metadata-grid" style="margin-top:12px;"></div>
-        </div>
-
-        <div id="gpsWrap" class="panel" style="margin-top:12px; display:none;">
-          <div class="card-title">GPS & Map</div>
-          <div id="gpsText" class="muted" style="margin-top:8px;">—</div>
-          <a id="gpsLink" class="muted" target="_blank" rel="noopener" style="display:inline-block; margin-top:6px; text-decoration:underline;">Open in Google Maps</a>
-          <div id="map" style="margin-top:10px;"></div>
-        </div>
+      <div class="controls flex gap-3">
+        <button id="exportJsonBtn" class="btn">Export JSON</button>
+        <button id="exportExcelBtn" class="btn">Export Excel</button>
+        <button id="generatePdfBtn" class="btn">Generate PDF (with image)</button>
       </div>
     </div>
 
-    <footer class="muted">© Meta Forensic — Cyber Dark • Local browser-only analysis</footer>
-  </div>
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <!-- Left: Upload + Preview + Case -->
+      <div class="col-span-1">
+        <div class="card">
+          <div class="dropzone" id="dropzone">
+            <input id="fileInput" type="file" accept="image/*" style="display:none" />
+            <div class="muted">Drag & drop an image here or</div>
+            <div style="margin-top:10px">
+              <button id="chooseBtn" class="btn">Choose Image</button>
+            </div>
+            <div class="small-muted mt-3">Recommended: JPEG for full EXIF. HEIC support varies by browser.</div>
+          </div>
 
-  <script>
-  // ======= Globals =======
-  const drop = document.getElementById('drop');
-  const fileInput = document.getElementById('fileInput');
-  const chooseBtn = document.getElementById('chooseBtn');
-  const preview = document.getElementById('preview');
-  const previewWrap = document.getElementById('previewWrap');
-  const rawJsonWrap = document.getElementById('rawJsonWrap');
-  const metaGrid = document.getElementById('metaGrid');
-  const gpsWrap = document.getElementById('gpsWrap');
-  const gpsText = document.getElementById('gpsText');
-  const gpsLink = document.getElementById('gpsLink');
-  const md5Val = document.getElementById('md5Val');
-  const sha1Val = document.getElementById('sha1Val');
-  const sha256Val = document.getElementById('sha256Val');
-  const basicInfo = document.getElementById('basicInfo');
-  const statusEl = document.getElementById('status');
-  const downloadMetaBtn = document.getElementById('downloadMetaBtn');
-  const downloadExcelBtn = document.getElementById('downloadExcelBtn');
-  const generatePdfBtn = document.getElementById('generatePdfBtn');
-  const copyMetaBtn = document.getElementById('copyMetaBtn');
-  const manipNotes = document.getElementById('manipNotes');
+          <div id="previewBox" class="mt-4" style="display:none;">
+            <div class="flex gap-4 items-start">
+              <img id="preview" class="preview-img" src="" alt="preview">
+              <div style="flex:1">
+                <div class="k">File</div>
+                <div id="fileInfo" class="small-muted">—</div>
+                <div class="mt-3">
+                  <button id="copyMetaBtn" class="btn" style="background:#8be1ff;color:#021022">Copy Metadata</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
 
-  let currentFile = null;
-  let currentMetadata = {};
-  let map = null;
-  let mapMarker = null;
+        <!-- Case management -->
+        <div class="card mt-4">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div><strong>🗂 Case Management</strong></div>
+            <div class="small-muted">Auto-fill CoC</div>
+          </div>
+          <div class="mt-3 space-y-2">
+            <input id="caseId" placeholder="Case ID (auto if blank)" class="w-full p-2 rounded bg-transparent border border-white/5" />
+            <input id="evidenceId" placeholder="Evidence ID" class="w-full p-2 rounded bg-transparent border border-white/5" />
+            <input id="officer" placeholder="Officer name" class="w-full p-2 rounded bg-transparent border border-white/5" />
+            <input id="suspect" placeholder="Suspect name" class="w-full p-2 rounded bg-transparent border border-white/5" />
+            <input id="victim" placeholder="Victim name" class="w-full p-2 rounded bg-transparent border border-white/5" />
+            <div class="flex gap-2">
+              <button id="createCaseBtn" class="btn">Create Case</button>
+              <button id="clearCaseBtn" class="btn" style="background:#ff9f43">Clear</button>
+            </div>
+            <div id="caseSummary" class="small-muted mt-2">No case created.</div>
+          </div>
+        </div>
 
-  // ======= Helpers =======
-  function setStatus(s){ statusEl.textContent = s; }
-  function readAsArrayBuffer(file){ return file.arrayBuffer(); }
-  function readAsDataURL(file){
-    return new Promise((res,rej)=>{
-      const r=new FileReader();
-      r.onload = ()=>res(r.result);
-      r.onerror = rej;
-      r.readAsDataURL(file);
-    });
-  }
-
-  // MD5 via CryptoJS
-  function computeMD5FromArrayBuffer(arrayBuffer){
-    try{
-      const wordArray = CryptoJS.lib.WordArray.create(arrayBuffer);
-      return CryptoJS.MD5(wordArray).toString(CryptoJS.enc.Hex);
-    }catch(e){ console.warn('MD5 error', e); return 'md5_err'; }
-  }
-  // SHA1/SHA256 via SubtleCrypto
-  async function computeSubtleHash(arrayBuffer, algo){
-    try{
-      const digest = await crypto.subtle.digest(algo, arrayBuffer);
-      return Array.from(new Uint8Array(digest)).map(b=>b.toString(16).padStart(2,'0')).join('');
-    }catch(e){
-      console.warn('Subtle hash error', e);
-      return algo+'_err';
-    }
-  }
-
-  // Flatten and format ExifReader tags
-  function normalizeTags(tags){
-    const out = {};
-    for(const k in tags){
-      if(!Object.prototype.hasOwnProperty.call(tags,k)) continue;
-      const v = tags[k];
-      // ExifReader entries can have .description, .value (or be primitive)
-      if(v && typeof v === 'object'){
-        out[k] = (v.description !== undefined) ? v.description : (v.value !== undefined ? v.value : v);
-      } else {
-        out[k] = v;
-      }
-    }
-
-    // Camera model / serial
-    out['Camera Model'] = out['Model'] || out['CameraModel'] || out['Make'] || out['Model'] || out['Image Model'] || out['ModelName'] || out['ModelID'] || out['Model'];
-    out['Camera Serial Number'] = out['BodySerialNumber'] || out['SerialNumber'] || out['CameraSerialNumber'] || out['OwnerID'] || out['BodySerialNumber'] || out['Serial No.'] || out['Serial'];
-
-    // Dates
-    out['Original Date & Time'] = out['DateTimeOriginal'] || out['CreateDate'] || out['Date Created'] || out['DateTime'];
-    out['Modified Date & Time'] = out['ModifyDate'] || out['DateTimeDigitized'] || out['LastModifiedDate'] || out['Date Time'] || out['Modify Date'] || out['ModifyDate'];
-
-    // GPS -> decimal if present
-    try{
-      if(tags.GPSLatitude && tags.GPSLongitude){
-        const lat = toDecimal(tags.GPSLatitude.value || tags.GPSLatitude);
-        const lon = toDecimal(tags.GPSLongitude.value || tags.GPSLongitude);
-        const latRef = (tags.GPSLatitudeRef && (tags.GPSLatitudeRef.description || tags.GPSLatitudeRef.value)) || '';
-        const lonRef = (tags.GPSLongitudeRef && (tags.GPSLongitudeRef.description || tags.GPSLongitudeRef.value)) || '';
-        out['_latitude'] = (latRef === 'S') ? -Math.abs(lat) : lat;
-        out['_longitude'] = (lonRef === 'W') ? -Math.abs(lon) : lon;
-      }
-    }catch(e){}
-    return out;
-  }
-
-  function toDecimal(input){
-    if(input === undefined || input === null) return null;
-    if(typeof input === 'number') return input;
-    if(Array.isArray(input)){
-      const [d,m,s] = input.map(Number);
-      return d + (m||0)/60 + (s||0)/3600;
-    }
-    if(typeof input === 'string'){
-      const parts = input.split(',').map(p=>p.trim());
-      const nums = parts.map(p=>{
-        const frac = p.split('/');
-        return frac.length===2 ? Number(frac[0])/Number(frac[1]) : Number(p);
-      });
-      return nums[0] + (nums[1]||0)/60 + (nums[2]||0)/3600;
-    }
-    const n = Number(input); return isNaN(n)?null:n;
-  }
-
-  // Render metadata cards (professional layout)
-  function renderMetadataCards(metadata){
-    metaGrid.innerHTML = '';
-    rawJsonWrap.style.display = 'block';
-
-    // Preferred ordering for important forensic fields
-    const preferred = ['Camera Model','Camera Serial Number','Original Date & Time','Modified Date & Time','File Type','Image Width','Image Height','Exif Image Width','Exif Image Height','FNumber','ExposureTime','ISOSpeedRatings','FocalLength','Software','Make','Model','_latitude','_longitude'];
-    // build keys but ensure uniqueness
-    const keys = Object.keys(metadata).filter(k => metadata[k] !== undefined && metadata[k] !== null);
-    keys.sort((a,b)=>{
-      const ai = preferred.indexOf(a), bi = preferred.indexOf(b);
-      if(ai === -1 && bi === -1) return a.localeCompare(b);
-      if(ai === -1) return 1;
-      if(bi === -1) return -1;
-      return ai - bi;
-    });
-
-    // Render two-column cards
-    for(const key of keys){
-      const val = metadata[key];
-      // skip internal keys if empty
-      const card = document.createElement('div');
-      card.className = 'metadata-card';
-      const kEl = document.createElement('div'); kEl.className = 'metadata-key'; kEl.textContent = key;
-      const vEl = document.createElement('div'); vEl.className = 'metadata-value';
-      // format arrays/objects nicely
-      let text;
-      if(Array.isArray(val)) text = val.join(', ');
-      else if(typeof val === 'object') text = JSON.stringify(val);
-      else text = String(val);
-      vEl.textContent = text;
-      // allow clicking a value to copy
-      vEl.style.cursor = 'pointer';
-      vEl.title = 'Click to copy';
-      vEl.addEventListener('click', ()=> {
-        navigator.clipboard.writeText(text).then(()=> {
-          vEl.style.transition = 'all .12s'; vEl.style.transform = 'translateY(-3px)'; setTimeout(()=> vEl.style.transform='none',180);
-        }).catch(()=>{});
-      });
-      card.appendChild(kEl); card.appendChild(vEl);
-      metaGrid.appendChild(card);
-    }
-    // Also set hidden textual metadata for exports
-    let metaTextEl = document.getElementById('metadataTextForExport');
-    if(!metaTextEl){
-      metaTextEl = document.createElement('pre'); metaTextEl.id = 'metadataTextForExport'; metaTextEl.style.display = 'none';
-      document.body.appendChild(metaTextEl);
-    }
-    metaTextEl.textContent = keys.map(k => `${k}: ${ (Array.isArray(metadata[k])? metadata[k].join(', ') : (typeof metadata[k] === 'object' ? JSON.stringify(metadata[k]) : String(metadata[k])) ) }`).join('\n');
-  }
-
-  // ======= Map =======
-  function showMap(lat,lon){
-    gpsWrap.style.display = 'block';
-    gpsText.textContent = `Latitude: ${lat.toFixed(6)}, Longitude: ${lon.toFixed(6)}`;
-    gpsLink.href = `https://www.google.com/maps?q=${lat},${lon}`;
-    if(!map){
-      map = L.map('map', { zoomControl: true, attributionControl: false }).setView([lat,lon], 14);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-      mapMarker = L.marker([lat,lon]).addTo(map);
-    } else {
-      map.setView([lat,lon], 14);
-      if(mapMarker) mapMarker.setLatLng([lat,lon]);
-      else mapMarker = L.marker([lat,lon]).addTo(map);
-    }
-  }
-
-  // ======= Export helpers =======
-  downloadMetaBtn.addEventListener('click', ()=>{
-    if(!currentFile || !currentMetadata) return alert('Analyze a file first.');
-    const payload = {
-      fileName: currentFile.name,
-      fileSize: currentFile.size,
-      metadata: currentMetadata,
-      generated: new Date().toISOString()
-    };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${currentFile.name.replace(/\.[^/.]+$/,'')}_metadata.json`; a.click(); URL.revokeObjectURL(a.href);
-  });
-
-  copyMetaBtn.addEventListener('click', ()=>{
-    if(!currentMetadata) return;
-    navigator.clipboard.writeText(JSON.stringify(currentMetadata, null, 2));
-    alert('Metadata copied to clipboard');
-  });
-
-  downloadExcelBtn.addEventListener('click', ()=>{
-    if(!currentFile || !currentMetadata) return alert('Analyze a file first.');
-    const metaText = document.getElementById('metadataTextForExport') ? document.getElementById('metadataTextForExport').textContent : '';
-    const rows = metaText.split('\n').map(r => [r]);
-    const ws = XLSX.utils.aoa_to_sheet(rows);
-    const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Metadata');
-    const fname = `${currentFile.name.replace(/\.[^/.]+$/,'')}_metadata.xlsx`;
-    XLSX.writeFile(wb, fname);
-  });
-
-  generatePdfBtn.addEventListener('click', async ()=>{
-    if(!currentFile || !currentMetadata) return alert('Analyze a file first.');
-    // build report node
-    const report = document.createElement('div');
-    report.style.width = '900px';
-    report.style.padding = '18px';
-    report.style.background = '#fff';
-    report.style.color = '#000';
-    report.innerHTML = `<h1 style="font-size:18px;margin:0 0 8px 0">META FORENSIC — Forensic Report</h1>
-      <div style="font-size:12px;margin-bottom:8px;">
-        <strong>File:</strong> ${currentFile.name} &nbsp; | &nbsp; <strong>Generated:</strong> ${new Date().toLocaleString()}
-      </div>
-      <div style="display:flex;gap:12px;">
-        <div style="flex:1;"><img src="${preview.src}" style="max-width:100%; border:1px solid #ccc;"></div>
-        <div style="flex:1;">
-          <h3 style="margin:0 0 6px 0">Key Metadata</h3>
-          <pre style="white-space:pre-wrap; font-size:11px; background:#f7f7f7; padding:8px; border-radius:6px;">${document.getElementById('metadataTextForExport') ? document.getElementById('metadataTextForExport').textContent : ''}</pre>
+        <!-- Chain of custody -->
+        <div class="card mt-4">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div><strong>📝 Chain of Custody</strong></div>
+            <div class="small-muted">Timeline</div>
+          </div>
+          <div id="cocTimeline" class="mt-3 space-y-2 small-muted" style="max-height:260px; overflow:auto;">
+            (no entries)
+          </div>
+          <div class="mt-3">
+            <input id="cocActor" placeholder="Actor (auto)" class="w-full p-2 rounded bg-transparent border border-white/5" />
+            <select id="cocAction" class="w-full p-2 rounded bg-transparent border border-white/5 mt-2">
+              <option>Collected</option><option>Received</option><option>Transferred</option><option>Analyzed</option><option>Stored</option><option>Returned</option><option>Other</option>
+            </select>
+            <input id="cocNote" placeholder="Note (optional)" class="w-full p-2 rounded bg-transparent border border-white/5 mt-2" />
+            <div class="flex gap-2 mt-2">
+              <button id="addCocBtn" class="btn">Add Entry</button>
+              <button id="exportCocBtn" class="btn" style="background:#9affc9;color:#021022">Export CoC</button>
+            </div>
+          </div>
         </div>
       </div>
-      <div style="margin-top:10px;">
-        <h3 style="margin:0 0 6px 0">Heuristic Notes</h3>
-        <div style="font-size:12px;">${manipNotes.textContent || '(none)'}</div>
+
+      <!-- Middle: Metadata accordions -->
+      <div class="col-span-1 lg:col-span-2">
+        <div class="card mb-4">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div><strong>📁 Forensic Metadata & Analysis</strong></div>
+            <div class="small-muted">Hybrid view — table & cards</div>
+          </div>
+
+          <div class="mt-4 metadata-grid">
+            <!-- Left column: accordion -->
+            <div>
+              <!-- General -->
+              <div class="accordion-item" id="acc-general">
+                <div class="accordion-header" data-target="body-general">
+                  <div><strong>📄 General</strong></div>
+                  <div class="small-muted">file • size • type</div>
+                </div>
+                <div class="accordion-body" id="body-general">
+                  <div class="grid grid-cols-2 gap-2">
+                    <div class="k">File name</div><div id="m-filename" class="kv">—</div>
+                    <div class="k">MIME type</div><div id="m-mime" class="kv">—</div>
+                    <div class="k">Size</div><div id="m-size" class="kv">—</div>
+                    <div class="k">Last modified</div><div id="m-lastmod" class="kv">—</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Camera -->
+              <div class="accordion-item" id="acc-camera">
+                <div class="accordion-header" data-target="body-camera">
+                  <div><strong>📸 Camera / Device</strong></div>
+                  <div class="small-muted">model • serial • lens</div>
+                </div>
+                <div class="accordion-body" id="body-camera">
+                  <div class="grid grid-cols-2 gap-2">
+                    <div class="k">Make</div><div id="m-make" class="kv">—</div>
+                    <div class="k">Model</div><div id="m-model" class="kv">—</div>
+                    <div class="k">Camera Serial</div><div id="m-serial" class="kv">—</div>
+                    <div class="k">Software</div><div id="m-software" class="kv">—</div>
+                    <div class="k">Lens</div><div id="m-lens" class="kv">—</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Timestamps -->
+              <div class="accordion-item" id="acc-time">
+                <div class="accordion-header" data-target="body-time">
+                  <div><strong>⏱ Timestamps</strong></div>
+                  <div class="small-muted">original • digitized • modified</div>
+                </div>
+                <div class="accordion-body" id="body-time">
+                  <div class="grid grid-cols-2 gap-2">
+                    <div class="k">Original Date/Time</div><div id="m-original" class="kv">—</div>
+                    <div class="k">Digitized</div><div id="m-digitized" class="kv">—</div>
+                    <div class="k">Modified</div><div id="m-modified" class="kv">—</div>
+                    <div class="k">Exif Offset</div><div id="m-offset" class="kv">—</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- GPS -->
+              <div class="accordion-item" id="acc-gps">
+                <div class="accordion-header" data-target="body-gps">
+                  <div>🗺️ GPS</div>
+                  <div class="small-muted">coordinates & map</div>
+                </div>
+                <div class="accordion-body" id="body-gps">
+                  <div class="grid grid-cols-2 gap-2">
+                    <div class="k">Latitude</div><div id="m-lat" class="kv">—</div>
+                    <div class="k">Longitude</div><div id="m-lng" class="kv">—</div>
+                    <div class="k">Altitude</div><div id="m-alt" class="kv">—</div>
+                    <div class="k">GPS Precision</div><div id="m-precision" class="kv">—</div>
+                  </div>
+                  <div class="mapbox mt-3" id="gpsMap"></div>
+                </div>
+              </div>
+
+              <!-- Hashes -->
+              <div class="accordion-item" id="acc-hash">
+                <div class="accordion-header" data-target="body-hash">
+                  <div>🔐 Hashes</div>
+                  <div class="small-muted">MD5 • SHA-1 • SHA-256</div>
+                </div>
+                <div class="accordion-body" id="body-hash">
+                  <div class="space-y-2">
+                    <div class="k">MD5</div><div id="m-md5" class="hash-code">—</div>
+                    <div class="k">SHA-1</div><div id="m-sha1" class="hash-code">—</div>
+                    <div class="k">SHA-256</div><div id="m-sha256" class="hash-code">—</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Manipulation -->
+              <div class="accordion-item" id="acc-manip">
+                <div class="accordion-header" data-target="body-manip">
+                  <div>🤖 AI / Manipulation</div>
+                  <div class="small-muted">ELA & heuristics</div>
+                </div>
+                <div class="accordion-body" id="body-manip">
+                  <div class="k">Detected Editing Apps</div><div id="m-editapps" class="kv">—</div>
+                  <div class="k mt-2">Heuristic Notes</div><div id="m-notes" class="kv">—</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Right column: quick summary card -->
+            <div>
+              <div class="card">
+                <div style="display:flex;align-items:center;gap:10px;">
+                  <div style="font-size:22px">📋 Summary</div>
+                  <div class="small-muted">Instant triage</div>
+                </div>
+                <div class="mt-3 small-muted">
+                  <div><strong>ELA Score:</strong> <span id="elaScore">—</span></div>
+                  <div><strong>Manipulation Risk:</strong> <span id="riskScore">—</span></div>
+                  <div><strong>Camera Present:</strong> <span id="cameraPresent">—</span></div>
+                  <div class="mt-3"><strong>Selected Case:</strong> <span id="selCase">none</span></div>
+                </div>
+              </div>
+
+              <div class="card mt-4">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                  <div><strong>Quick Actions</strong></div>
+                </div>
+                <div class="mt-3 flex gap-2">
+                  <button id="quickCoCImport" class="btn">Log Import</button>
+                  <button id="quickGeneratePdf" class="btn">PDF</button>
+                </div>
+                <div class="mt-3 small-muted">
+                  Use PDF to create court-ready report (includes thumbnail).
+                </div>
+              </div>
+            </div>
+
+          </div> <!-- metadata-grid -->
+        </div> <!-- card -->
       </div>
-    `;
-    document.body.appendChild(report);
-    const canvas = await html2canvas(report, { scale: 2 });
-    const imgData = canvas.toDataURL('image/jpeg', 0.9);
-    const { jsPDF } = window.jspdf;
-    const pdf = new jsPDF({ unit:'px', format:[canvas.width, canvas.height] });
-    pdf.addImage(imgData, 'JPEG', 0, 0, canvas.width, canvas.height);
-    pdf.save(`${currentFile.name.replace(/\.[^/.]+$/,'')}_forensic_report.pdf`);
-    document.body.removeChild(report);
+    </div> <!-- grid -->
+
+    <div class="mt-6 small-muted text-center">Built for investigators • For demonstration only — use verified tools for court evidence.</div>
+  </div>
+
+<script>
+/* ================== App state ================== */
+let currentFile = null;
+let currentArrayBuffer = null;
+let currentMetadata = null;
+let gpsMap = null;
+let gpsMarker = null;
+let cocEntries = [];
+let currentCase = null;
+let lastHashes = { md5:null, sha1:null, sha256:null };
+
+/* ===== UI refs ===== */
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('fileInput');
+const chooseBtn = document.getElementById('chooseBtn');
+const previewBox = document.getElementById('previewBox');
+const preview = document.getElementById('preview');
+const fileInfo = document.getElementById('fileInfo');
+
+const mFilename = document.getElementById('m-filename');
+const mMime = document.getElementById('m-mime');
+const mSize = document.getElementById('m-size');
+const mLast = document.getElementById('m-lastmod');
+
+const mMake = document.getElementById('m-make');
+const mModel = document.getElementById('m-model');
+const mSerial = document.getElementById('m-serial');
+const mSoftware = document.getElementById('m-software');
+const mLens = document.getElementById('m-lens');
+
+const mOriginal = document.getElementById('m-original');
+const mDigitized = document.getElementById('m-digitized');
+const mModified = document.getElementById('m-modified');
+const mOffset = document.getElementById('m-offset');
+
+const mLat = document.getElementById('m-lat');
+const mLng = document.getElementById('m-lng');
+const mAlt = document.getElementById('m-alt');
+const mPrec = document.getElementById('m-precision');
+
+const mMd5 = document.getElementById('m-md5');
+const mSha1 = document.getElementById('m-sha1');
+const mSha256 = document.getElementById('m-sha256');
+
+const mEditApps = document.getElementById('m-editapps');
+const mNotes = document.getElementById('m-notes');
+
+const elaScoreEl = document.getElementById('elaScore');
+const riskScoreEl = document.getElementById('riskScore');
+const cameraPresentEl = document.getElementById('cameraPresent');
+
+const caseIdInput = document.getElementById('caseId');
+const evidenceIdInput = document.getElementById('evidenceId');
+const officerInput = document.getElementById('officer');
+const suspectInput = document.getElementById('suspect');
+const victimInput = document.getElementById('victim');
+const createCaseBtn = document.getElementById('createCaseBtn');
+const clearCaseBtn = document.getElementById('clearCaseBtn');
+const caseSummary = document.getElementById('caseSummary');
+
+const cocTimeline = document.getElementById('cocTimeline');
+const cocActor = document.getElementById('cocActor');
+const cocAction = document.getElementById('cocAction');
+const cocNote = document.getElementById('cocNote');
+const addCocBtn = document.getElementById('addCocBtn');
+const exportCocBtn = document.getElementById('exportCocBtn');
+
+const exportJsonBtn = document.getElementById('exportJsonBtn');
+const exportExcelBtn = document.getElementById('exportExcelBtn');
+const generatePdfBtn = document.getElementById('generatePdfBtn');
+
+const copyMetaBtn = document.getElementById('copyMetaBtn');
+const quickCoCImport = document.getElementById('quickCoCImport');
+const quickGeneratePdf = document.getElementById('quickGeneratePdf');
+
+/* ===== Accordion behaviour ===== */
+document.querySelectorAll('.accordion-header').forEach(h=>{
+  h.addEventListener('click', ()=>{
+    const id = h.dataset.target;
+    const body = document.getElementById(id);
+    const visible = body.style.display === 'block';
+    // close others optionally
+    document.querySelectorAll('.accordion-body').forEach(b=>b.style.display = 'none');
+    body.style.display = visible ? 'none' : 'block';
   });
+});
 
-  // ======= Main analysis flow =======
-  chooseBtn.addEventListener('click', ()=> fileInput.click());
-  fileInput.addEventListener('change', (e)=> { const f = e.target.files && e.target.files[0]; if(f) handleFile(f); });
+/* ===== File drop/select ===== */
+chooseBtn.addEventListener('click', ()=> fileInput.click());
+fileInput.addEventListener('change', (e)=> { if(e.target.files && e.target.files[0]) handleFile(e.target.files[0]); });
 
-  ['dragenter','dragover'].forEach(ev => drop.addEventListener(ev, (e)=>{ e.preventDefault(); drop.classList.add('drag'); }));
-  ['dragleave','drop'].forEach(ev => drop.addEventListener(ev, (e)=>{ e.preventDefault(); drop.classList.remove('drag'); }));
-  drop.addEventListener('drop', (e)=>{ e.preventDefault(); const f = e.dataTransfer.files && e.dataTransfer.files[0]; if(f) handleFile(f); });
+['dragenter','dragover'].forEach(ev=>{
+  dropzone.addEventListener(ev, (e)=> { e.preventDefault(); dropzone.style.borderColor = 'rgba(139,225,255,0.8)'; });
+});
+['dragleave','drop'].forEach(ev=>{
+  dropzone.addEventListener(ev, (e)=> { e.preventDefault(); dropzone.style.borderColor = ''; });
+});
+dropzone.addEventListener('drop', (e)=>{
+  e.preventDefault();
+  dropzone.style.borderColor = '';
+  const f = e.dataTransfer.files && e.dataTransfer.files[0];
+  if(f) handleFile(f);
+});
 
-  async function handleFile(file){
-    try{
-      setStatus('processing');
-      currentFile = file;
-      const arrayBuffer = await readAsArrayBuffer(file);
-      const dataURL = await readAsDataURL(file);
-      preview.src = dataURL;
-      previewWrap.style.display = 'block';
+/* ===== Utilities ===== */
+function readAsArrayBuffer(file){ return file.arrayBuffer(); }
+function readAsDataURL(file){ return new Promise((res,rej)=>{ const fr=new FileReader(); fr.onload=()=>res(fr.result); fr.onerror=rej; fr.readAsDataURL(file); }); }
 
-      // read EXIF via ExifReader (expanded gives richer objects)
-      let tags = {};
-      try{
-        tags = ExifReader.load(arrayBuffer, { expanded: true });
-      }catch(e){
-        console.warn('ExifReader load error', e);
-        try{ tags = ExifReader.load(arrayBuffer); } catch(e2){ tags = {}; }
-      }
-      const normalized = normalizeTags(tags);
-      currentMetadata = normalized;
+function toDecimalFromEXIF(value){
+  if(!value) return null;
+  if(Array.isArray(value)) {
+    const parts = value.map(v => (typeof v === 'object' && 'value' in v) ? Number(v.value) : Number(v));
+    return parts[0] + (parts[1]||0)/60 + (parts[2]||0)/3600;
+  }
+  if(typeof value === 'string'){
+    const parts = value.split(',').map(p=>p.trim());
+    return parts.map(p=> { const f=p.split('/'); return f.length===2?Number(f[0])/Number(f[1]) : Number(p); })[0];
+  }
+  return Number(value);
+}
 
-      // compute hashes
-      const md5 = computeMD5FromArrayBuffer(arrayBuffer);
-      const sha1 = await computeSubtleHash(arrayBuffer, 'SHA-1');
-      const sha256 = await computeSubtleHash(arrayBuffer, 'SHA-256');
-      md5Val.textContent = md5;
-      sha1Val.textContent = sha1;
-      sha256Val.textContent = sha256;
+/* ===== Hash helpers ===== */
+async function computeSubtleHash(buf, algo){
+  try {
+    const digest = await crypto.subtle.digest(algo, buf);
+    return Array.from(new Uint8Array(digest)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  } catch(e){ console.warn('subtle digest error', e); return algo + '_err'; }
+}
+function computeMD5(buf){
+  try {
+    // CryptoJS expects WordArray; convert
+    const wordArray = CryptoJS.lib.WordArray.create(buf);
+    return CryptoJS.MD5(wordArray).toString(CryptoJS.enc.Hex);
+  } catch(e){ console.warn('md5 err', e); return 'md5_err'; }
+}
 
-      // attach hashes to metadata
-      currentMetadata['MD5'] = md5;
-      currentMetadata['SHA-1'] = sha1;
-      currentMetadata['SHA-256'] = sha256;
+/* ===== Handle file ===== */
+async function handleFile(file){
+  currentFile = file;
+  currentArrayBuffer = await readAsArrayBuffer(file);
+  const dataURL = await readAsDataURL(file);
 
-      // update UI info
-      basicInfo.textContent = `Type: ${file.type || 'N/A'} • Size: ${(file.size/1024).toFixed(1)} KB • Modified: ${new Date(file.lastModified).toLocaleString()}`;
-      manipNotes.textContent = computeHeuristics(tags, currentMetadata);
+  // Show preview
+  preview.src = dataURL;
+  previewBox.style.display = 'block';
+  fileInfo.textContent = `${file.name} • ${(file.size/1024).toFixed(1)} KB • ${file.type || 'N/A'}`;
 
-      // render metadata cards
-      renderMetadataCards(currentMetadata);
+  // parse EXIF
+  let tags = {};
+  try {
+    tags = ExifReader.load(currentArrayBuffer, { expanded: true });
+  } catch(e) {
+    console.warn('ExifReader failed', e);
+    tags = {};
+  }
 
-      // if GPS present, show map
-      if(currentMetadata._latitude && currentMetadata._longitude){
-        showMap(currentMetadata._latitude, currentMetadata._longitude);
-      } else {
-        gpsWrap.style.display = 'none';
-      }
+  // normalize and display metadata
+  currentMetadata = buildMetadataObject(file, tags);
 
-      setStatus('ready');
-    }catch(err){
-      console.error(err);
-      setStatus('error');
-      alert('Analysis failed: ' + (err && err.message ? err.message : String(err)));
+  // compute hashes
+  lastHashes.md5 = computeMD5(currentArrayBuffer);
+  lastHashes.sha1 = await computeSubtleHash(currentArrayBuffer, 'SHA-1');
+  lastHashes.sha256 = await computeSubtleHash(currentArrayBuffer, 'SHA-256');
+
+  // store hashes in metadata object
+  currentMetadata.hashes = { ...lastHashes };
+
+  // display in UI
+  renderAll(currentMetadata, tags);
+
+  // auto CoC logging if case selected
+  if(currentCase) {
+    const note = `Imported file ${file.name} (${(file.size/1024).toFixed(1)} KB) SHA-256: ${lastHashes.sha256}`;
+    addCocEntry(cocActor.value || currentCase.officer || 'Unknown', 'Imported', note, true);
+  }
+}
+
+/* ===== build normalized metadata object ===== */
+function buildMetadataObject(file, tags){
+  const out = {};
+  out.fileName = file.name;
+  out.fileSize = `${(file.size/1024).toFixed(1)} KB`;
+  out.mimeType = file.type || 'N/A';
+  out.lastModified = new Date(file.lastModified).toLocaleString();
+
+  // camera / device
+  out.make = tags.Make && (tags.Make.description || tags.Make.value) || '';
+  out.model = tags.Model && (tags.Model.description || tags.Model.value) || '';
+  out.serial = (tags.BodySerialNumber && (tags.BodySerialNumber.description || tags.BodySerialNumber.value)) || (tags.SerialNumber && (tags.SerialNumber.description || tags.SerialNumber.value)) || '';
+  out.software = (tags.Software && (tags.Software.description || tags.Software.value)) || '';
+  out.lens = (tags.LensModel && (tags.LensModel.description || tags.LensModel.value)) || '';
+
+  // dates
+  out.dateOriginal = (tags.DateTimeOriginal && (tags.DateTimeOriginal.description || tags.DateTimeOriginal.value)) || '';
+  out.dateDigitized = (tags.CreateDate && (tags.CreateDate.description || tags.CreateDate.value)) || '';
+  out.dateModified = (tags.ModifyDate && (tags.ModifyDate.description || tags.ModifyDate.value)) || (tags.DateTime && (tags.DateTime.description || tags.DateTime.value)) || '';
+
+  // GPS
+  try {
+    if(tags.GPSLatitude && tags.GPSLongitude){
+      const lat = toDecimalFromEXIF(tags.GPSLatitude.value || tags.GPSLatitude);
+      const lon = toDecimalFromEXIF(tags.GPSLongitude.value || tags.GPSLongitude);
+      const latRef = (tags.GPSLatitudeRef && (tags.GPSLatitudeRef.value || tags.GPSLatitudeRef.description)) || '';
+      const lonRef = (tags.GPSLongitudeRef && (tags.GPSLongitudeRef.value || tags.GPSLongitudeRef.description)) || '';
+      out.latitude = lat ? (latRef === 'S' ? -Math.abs(lat) : lat) : null;
+      out.longitude = lon ? (lonRef === 'W' ? -Math.abs(lon) : lon) : null;
+      out.altitude = (tags.GPSAltitude && (tags.GPSAltitude.description || tags.GPSAltitude.value)) || '';
+      out.gpsPrecision = (tags.GPSDOP && (tags.GPSDOP.description || tags.GPSDOP.value)) || '';
+    } else {
+      out.latitude = null; out.longitude = null; out.altitude = ''; out.gpsPrecision = '';
+    }
+  } catch(e){ out.latitude = null; out.longitude = null; out.altitude = ''; out.gpsPrecision = ''; }
+
+  // thumbnail presence
+  out.hasThumbnail = !!(tags.JPEGThumbnail || tags.Thumbnail);
+
+  // raw tags pass-through (for JSON export)
+  out._raw = tags;
+
+  return out;
+}
+
+/* ===== Render to UI ===== */
+function renderAll(meta, tags){
+  // General
+  mFilename.textContent = meta.fileName || '—';
+  mMime.textContent = meta.mimeType || '—';
+  mSize.textContent = meta.fileSize || '—';
+  mLast.textContent = meta.lastModified || '—';
+
+  // Camera
+  mMake.textContent = meta.make || '—';
+  mModel.textContent = meta.model || '—';
+  mSerial.textContent = meta.serial || '—';
+  mSoftware.textContent = meta.software || '—';
+  mLens.textContent = meta.lens || '—';
+  cameraPresentEl.textContent = (meta.model || meta.make) ? 'Yes' : 'No';
+
+  // Timestamps
+  mOriginal.textContent = meta.dateOriginal || '—';
+  mDigitized.textContent = meta.dateDigitized || '—';
+  mModified.textContent = meta.dateModified || '—';
+  mOffset.textContent = tags.OffsetTime || tags.TimeZone || '—';
+
+  // GPS
+  if(meta.latitude && meta.longitude){
+    mLat.textContent = Number(meta.latitude).toFixed(6);
+    mLng.textContent = Number(meta.longitude).toFixed(6);
+    mAlt.textContent = meta.altitude || '—';
+    mPrec.textContent = meta.gpsPrecision || '—';
+    showMap(meta.latitude, meta.longitude);
+  } else {
+    mLat.textContent = '—'; mLng.textContent = '—'; mAlt.textContent='—'; mPrec.textContent='—';
+    hideMap();
+  }
+
+  // Hashes
+  mMd5.textContent = lastHashes.md5 || '—';
+  mSha1.textContent = lastHashes.sha1 || '—';
+  mSha256.textContent = lastHashes.sha256 || '—';
+
+  // Edit apps detect
+  const apps = detectEditingApps(tags);
+  mEditApps.textContent = apps.length ? apps.join(', ') : 'None detected';
+
+  // Heuristic notes
+  const notes = computeManipulationNotes(tags, lastHashes);
+  mNotes.textContent = Array.isArray(notes) ? notes.join(' | ') : notes;
+
+  // ELA placeholder (fast heuristic: use thumbnail absence + software presence)
+  const elaScore = heuristicELAScore(tags);
+  const risk = computeRiskFromHeuristics(tags, elaScore);
+  elaScoreEl.textContent = elaScore.toFixed(1);
+  riskScoreEl.textContent = risk;
+
+  // store for export
+  currentMetadata = meta;
+}
+
+/* ===== Map helpers ===== */
+function showMap(lat, lng){
+  const el = document.getElementById('gpsMap');
+  el.style.display = 'block';
+  if(!gpsMap){
+    gpsMap = L.map('gpsMap', { zoomControl:false }).setView([lat, lng], 15);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap contributors' }).addTo(gpsMap);
+    gpsMarker = L.marker([lat, lng]).addTo(gpsMap);
+  } else {
+    gpsMap.setView([lat, lng], 15);
+    if(!gpsMarker) gpsMarker = L.marker([lat, lng]).addTo(gpsMap); else gpsMarker.setLatLng([lat, lng]);
+  }
+}
+function hideMap(){
+  const el = document.getElementById('gpsMap');
+  el.style.display = 'none';
+}
+
+/* ===== Detection heuristics ===== */
+function detectEditingApps(tags){
+  const fields = ['Software','ProcessingSoftware','CreatorTool','ImageHistory','ApplicationRecord','HostComputer'];
+  let raw = '';
+  for(const f of fields){
+    if(tags[f]) raw += ' ' + (tags[f].description || tags[f].value || String(tags[f]));
+  }
+  raw = raw.trim().toLowerCase();
+  if(!raw) return [];
+  const known = [
+    {name:'Adobe Photoshop', terms:['photoshop','adobe']},
+    {name:'Lightroom', terms:['lightroom']},
+    {name:'GIMP', terms:['gimp']},
+    {name:'Snapseed', terms:['snapseed']},
+    {name:'Canva', terms:['canva']},
+    {name:'Instagram', terms:['instagram']},
+    {name:'Phone Photos App', terms:['iphone','android','pixel','galaxy','photos']},
+  ];
+  const found=[];
+  for(const k of known){
+    for(const t of k.terms) if(raw.includes(t)){ found.push(k.name); break; }
+  }
+  return found.length ? Array.from(new Set(found)) : [raw.slice(0,60)];
+}
+
+function computeManipulationNotes(tags, hashes){
+  const notes = [];
+  if(tags.Software || tags.ProcessingSoftware) notes.push('Software tag present');
+  else notes.push('No software tag');
+  // thumbnail
+  if(!tags.JPEGThumbnail && !tags.Thumbnail) notes.push('No embedded thumbnail');
+  // date mismatch
+  try {
+    const orig = tags.DateTimeOriginal && (tags.DateTimeOriginal.description || tags.DateTimeOriginal.value);
+    const mod = (tags.ModifyDate && (tags.ModifyDate.description || tags.ModifyDate.value)) || (tags.DateTime && (tags.DateTime.description || tags.DateTime.value));
+    if(orig && mod){
+      const o = Date.parse(String(orig).replace(/:/g,'-'));
+      const m = Date.parse(String(mod).replace(/:/g,'-'));
+      if(!isNaN(o) && !isNaN(m) && m > o + 60000) notes.push('ModifyDate later than Original — possible edit');
+    }
+  } catch(e){}
+  notes.push(`SHA-256: ${hashes.sha256 || 'N/A'}`);
+  return notes;
+}
+
+function heuristicELAScore(tags){
+  // Simple heuristic: if thumbnail missing and software present -> higher ELA suspicion
+  let score = 5;
+  if(!tags.JPEGThumbnail && !tags.Thumbnail) score += 18;
+  if(tags.Software || tags.ProcessingSoftware) score += 12;
+  if(!tags.Model || !tags.Make) score += 6;
+  // clamp 0..100
+  return Math.min(100, score);
+}
+
+function computeRiskFromHeuristics(tags, ela){
+  let score = Math.round(Math.min(100, ela * 0.8));
+  if(!tags.Model) score += 8;
+  if(!tags.BodySerialNumber && !tags.SerialNumber) score += 6;
+  return score;
+}
+
+/* ===== Case / CoC handling ===== */
+createCaseBtn.addEventListener('click', ()=>{
+  const id = caseIdInput.value.trim() || 'CASE-' + Date.now().toString().slice(-8);
+  currentCase = {
+    id,
+    evidence: evidenceIdInput.value.trim() || '',
+    officer: officerInput.value.trim() || '',
+    suspect: suspectInput.value.trim() || '',
+    victim: victimInput.value.trim() || '',
+    created: new Date().toISOString(),
+    coc: []
+  };
+  caseSummary.innerHTML = `<strong>${currentCase.id}</strong> • Evidence: ${currentCase.evidence || '(none)'} • Officer: ${currentCase.officer || '(none)'}`;
+  document.getElementById('selCase').textContent = currentCase.id;
+  // clear inputs
+  caseIdInput.value=''; evidenceIdInput.value=''; officerInput.value=''; suspectInput.value=''; victimInput.value='';
+  // auto log creation
+  addCocEntry(currentCase.officer || 'System', 'Case Created', `Case ${currentCase.id} created`, false);
+});
+
+clearCaseBtn.addEventListener('click', ()=>{
+  if(!confirm('Clear current case and CoC?')) return;
+  currentCase = null; caseSummary.textContent = 'No case created.'; document.getElementById('selCase').textContent = 'none';
+  cocEntries = []; renderCoc();
+});
+
+/* Chain-of-custody functions */
+function addCocEntry(actor, action, note, skipRender=false){
+  const entry = { actor: actor || 'Unknown', action, note: note || '', time: new Date().toISOString() };
+  cocEntries.unshift(entry); // newest first
+  // also push to case if available
+  if(currentCase){
+    currentCase.coc = currentCase.coc || [];
+    currentCase.coc.unshift(entry);
+  }
+  if(!skipRender) renderCoc();
+}
+addCocBtn.addEventListener('click', ()=> {
+  addCocEntry(cocActor.value || (currentCase && currentCase.officer) || 'Unknown', cocAction.value, cocNote.value.trim());
+  cocNote.value=''; cocActor.value='';
+});
+exportCocBtn.addEventListener('click', ()=>{
+  if(!currentCase) return alert('Create/select a case first.');
+  const blob = new Blob([JSON.stringify(currentCase, null, 2)], { type:'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `CoC_${currentCase.id}.json`; a.click(); URL.revokeObjectURL(a.href);
+});
+function renderCoc(){
+  if(cocEntries.length===0) cocTimeline.innerHTML = '(no entries)';
+  else {
+    cocTimeline.innerHTML = '';
+    for(const e of cocEntries){
+      const d = document.createElement('div');
+      d.className = 'p-2 border-b border-white/5';
+      d.innerHTML = `<div style="font-weight:700">${e.action} — ${e.actor}</div><div class="small-muted">${new Date(e.time).toLocaleString()}</div><div style="margin-top:6px">${e.note || ''}</div>`;
+      cocTimeline.appendChild(d);
     }
   }
+}
 
-  // Simple heuristics (date consistency, presence of software tag, thumbnail)
-  function computeHeuristics(tags, metadata){
-    const notes = [];
-    try{
-      const sw = tags.Software || tags.ProcessingSoftware || tags.CreatorTool;
-      if(sw) notes.push('Software/Processing tag present — inspect application listed.');
-      else notes.push('No software/processing tag found (may be stripped).');
+/* Quick import log */
+quickCoCImport.addEventListener('click', ()=> {
+  if(!currentFile) return alert('Import a file first.');
+  addCocEntry((currentCase && currentCase.officer) || 'Unknown', 'Imported (manual)', `Manual import of ${currentFile.name}`);
+});
 
-      const orig = (tags.DateTimeOriginal && (tags.DateTimeOriginal.description || tags.DateTimeOriginal.value)) || metadata['Original Date & Time'];
-      const mod = (tags.ModifyDate && (tags.ModifyDate.description || tags.ModifyDate.value)) || metadata['Modified Date & Time'];
-      if(orig && mod){
-        const o = Date.parse(String(orig).replace(/:/g,'-'));
-        const m = Date.parse(String(mod).replace(/:/g,'-'));
-        if(!isNaN(o) && !isNaN(m) && m > o + 60000) notes.push('ModifyDate later than DateTimeOriginal — possible edit after capture.');
-      }
-      const thumb = !!(tags.JPEGThumbnail || tags.Thumbnail);
-      if(!thumb) notes.push('No embedded thumbnail (may indicate stripping).');
-      notes.push(`SHA-256: ${metadata['SHA-256'] || 'N/A'}`);
-    }catch(e){}
-    return notes.join(' ');
-  }
+/* ===== Exports: JSON, Excel, PDF ===== */
+exportJsonBtn.addEventListener('click', ()=>{
+  if(!currentFile || !currentMetadata) return alert('Analyze a file first.');
+  const payload = { case: currentCase || null, metadata: currentMetadata, hashes: lastHashes, coc: currentCase ? currentCase.coc : cocEntries };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type:'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${(currentFile.name || 'image').replace(/\.[^/.]+$/,'')}_forensic.json`; a.click(); URL.revokeObjectURL(a.href);
+});
 
-  // Boot
-  setStatus('idle');
-  </script>
+exportExcelBtn.addEventListener('click', ()=>{
+  if(!currentFile || !currentMetadata) return alert('Analyze a file first.');
+  // Build rows: key, value
+  const rows = [
+    ['File Name', currentMetadata.fileName],
+    ['File Size', currentMetadata.fileSize],
+    ['MIME', currentMetadata.mimeType],
+    ['Make', currentMetadata.make],
+    ['Model', currentMetadata.model],
+    ['Serial', currentMetadata.serial],
+    ['Original Date', currentMetadata.dateOriginal],
+    ['Modified Date', currentMetadata.dateModified],
+    ['Latitude', currentMetadata.latitude],
+    ['Longitude', currentMetadata.longitude],
+    ['MD5', lastHashes.md5],
+    ['SHA-1', lastHashes.sha1],
+    ['SHA-256', lastHashes.sha256]
+  ];
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Metadata');
+  XLSX.writeFile(wb, `${(currentFile.name || 'image').replace(/\.[^/.]+$/,'')}_metadata.xlsx`);
+});
+
+/* PDF generation: render a report div, snapshot with html2canvas, include image */
+generatePdfBtn.addEventListener('click', async ()=>{
+  if(!currentFile || !currentMetadata) return alert('Analyze a file first.');
+  await createPdfReport();
+});
+quickGeneratePdf.addEventListener('click', async ()=> {
+  if(!currentFile || !currentMetadata) return alert('Analyze a file first.');
+  await createPdfReport();
+});
+
+async function createPdfReport(){
+  // build report DOM
+  const report = document.createElement('div');
+  report.style.width = '1000px';
+  report.style.padding = '20px';
+  report.style.background = '#fff';
+  report.style.color = '#000';
+  report.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <div>
+        <h1 style="margin:0">META FORENSIC — Forensic Report</h1>
+        <div style="font-size:12px;margin-top:6px">Generated: ${new Date().toLocaleString()}</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:13px"><strong>Case:</strong> ${(currentCase && currentCase.id) || '(none)'}</div>
+        <div style="font-size:13px"><strong>Evidence:</strong> ${(currentCase && currentCase.evidence) || '(none)'}</div>
+      </div>
+    </div>
+    <hr style="margin:12px 0" />
+    <div style="display:flex;gap:12px;">
+      <div style="flex:1">
+        <div style="font-weight:700">File</div>
+        <div>File name: ${currentMetadata.fileName}</div>
+        <div>Size: ${currentMetadata.fileSize}</div>
+        <div>MIME: ${currentMetadata.mimeType}</div>
+        <div style="margin-top:8px;font-weight:700">Camera</div>
+        <div>Make: ${currentMetadata.make || '—'}</div>
+        <div>Model: ${currentMetadata.model || '—'}</div>
+        <div>Serial: ${currentMetadata.serial || '—'}</div>
+      </div>
+      <div style="width:320px">
+        <div style="font-weight:700">Preview</div>
+        <img src="${preview.src}" style="width:100%;border:1px solid #ddd;padding:6px;border-radius:6px;margin-top:6px" />
+      </div>
+    </div>
+
+    <div style="margin-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+      <div>
+        <div style="font-weight:700">Timestamps</div>
+        <div>Original: ${currentMetadata.dateOriginal || '—'}</div>
+        <div>Modified: ${currentMetadata.dateModified || '—'}</div>
+      </div>
+      <div>
+        <div style="font-weight:700">Hashes</div>
+        <div>MD5: ${lastHashes.md5 || '—'}</div>
+        <div>SHA-1: ${lastHashes.sha1 || '—'}</div>
+        <div>SHA-256: ${lastHashes.sha256 || '—'}</div>
+      </div>
+    </div>
+
+    <div style="margin-top:12px">
+      <div style="font-weight:700">Chain of Custody</div>
+      <div style="font-size:12px;margin-top:6px">
+        ${(currentCase && currentCase.coc && currentCase.coc.length) ? currentCase.coc.map(e => `<div style="margin-bottom:6px"><strong>${new Date(e.time).toLocaleString()}</strong> — ${e.actor} — ${e.action} ${e.note?('<br/>' + e.note):''}</div>`).join('') : (cocEntries.length ? cocEntries.map(e => `<div style="margin-bottom:6px"><strong>${new Date(e.time).toLocaleString()}</strong> — ${e.actor} — ${e.action} ${e.note?('<br/>' + e.note):''}</div>`).join('') : '<div>(no CoC entries)</div>')}
+      </div>
+    </div>
+
+    <div style="margin-top:12px;font-size:12px">
+      <div style="font-weight:700">Notes</div>
+      <div>${Array.isArray(computeManipulationNotes(currentMetadata._raw,lastHashes)) ? computeManipulationNotes(currentMetadata._raw,lastHashes).join(' | ') : computeManipulationNotes(currentMetadata._raw,lastHashes)}</div>
+    </div>
+  `;
+
+  document.body.appendChild(report);
+  // render
+  const canvas = await html2canvas(report, { scale: 2, useCORS:true, allowTaint:true });
+  const imgData = canvas.toDataURL('image/jpeg', 0.95);
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({ unit:'px', format:[canvas.width, canvas.height] });
+  pdf.addImage(imgData, 'JPEG', 0, 0, canvas.width, canvas.height);
+  // attach metadata JSON as an extra page
+  pdf.addPage();
+  const metaStr = JSON.stringify({ case: currentCase || null, metadata: currentMetadata, hashes: lastHashes, coc: currentCase ? currentCase.coc : cocEntries }, null, 2);
+  const lines = pdf.splitTextToSize(metaStr, pdf.internal.pageSize.getWidth() - 40);
+  pdf.setFontSize(10);
+  pdf.text(lines, 20, 20);
+  const fname = `forensic_report_${(currentCase && currentCase.id) || 'report'}.pdf`;
+  pdf.save(fname);
+  document.body.removeChild(report);
+
+  // auto log in CoC
+  addCocEntry((currentCase && currentCase.officer) || 'System', 'Report Generated', `PDF ${fname} created`);
+}
+
+/* ===== Copy metadata button ===== */
+copyMetaBtn.addEventListener('click', ()=>{
+  if(!currentMetadata) return alert('No metadata to copy.');
+  navigator.clipboard.writeText(JSON.stringify({ metadata: currentMetadata, hashes: lastHashes }, null, 2));
+  alert('Metadata JSON copied to clipboard');
+});
+
+/* ===== Misc helpers: detect editing apps and compute manip notes already above ===== */
+
+/* ===== Boot: initial render COC and defaults ===== */
+renderCoc();
+hideMap();
+
+/* Note: This web tool is for triage and demonstration. Hashes computed client-side for integrity checks; for court evidence follow your lab's validated processes. */
+
+</script>
 </body>
 </html>
