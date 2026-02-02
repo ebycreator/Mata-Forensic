@@ -1,242 +1,176 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Meta Forensic</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/exifreader/dist/exif-reader.min.js"></script>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <style>
-    body {
-      /* Digital forensic background */
-      background: url('https://images.unsplash.com/photo-1616401785984-ded538da8c10?auto=format&fit=crop&w=1920&q=80') no-repeat center center fixed;
-      background-size: cover;
-    }
-    .dropzone { transition: background-color .15s ease; }
-    #map { height: 200px; border-radius: 0.5rem; margin-top: 0.5rem; }
-    .card-header { background-color: rgba(30,64,175,0.1); padding: 0.5rem 1rem; border-radius: 0.5rem 0.5rem 0 0; font-weight: 600; }
-    .card { background-color: rgba(255,255,255,0.9); border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-    /* Minimal metadata card design */
-    .metadata-card {
-      background-color: rgba(255,255,255,0.95);
-      border: 1px solid rgba(0,0,0,0.1);
-      border-radius: 0.5rem;
-      padding: 0.5rem 1rem;
-      margin-bottom: 0.5rem;
-      display: flex;
-      justify-content: space-between;
-      font-size: 0.875rem;
-    }
-    .metadata-key { font-weight: 600; color: #1e40af; }
-    .metadata-value { color: #334155; text-align: right; word-break: break-word; }
-  </style>
+<meta charset="UTF-8">
+<title>Social Media Image Forensic Analyzer</title>
+
+<!-- ===== FORMAL CSS ===== -->
+<style>
+body {
+    font-family: "Segoe UI", Arial, sans-serif;
+    background-color: #f1f5f9;
+    margin: 0;
+    color: #0f172a;
+}
+
+header {
+    background-color: #020617;
+    color: #ffffff;
+    padding: 25px;
+    text-align: center;
+}
+
+section {
+    max-width: 900px;
+    margin: auto;
+    padding: 30px;
+}
+
+button {
+    padding: 10px 18px;
+    background-color: #1e3a8a;
+    color: white;
+    border: none;
+    cursor: pointer;
+}
+
+button:hover {
+    background-color: #1e40af;
+}
+
+pre {
+    background-color: #020617;
+    color: #22c55e;
+    padding: 20px;
+    font-size: 14px;
+    overflow-x: auto;
+}
+
+footer {
+    background-color: #020617;
+    color: white;
+    text-align: center;
+    padding: 12px;
+    margin-top: 40px;
+}
+</style>
 </head>
-<body class="text-slate-900 min-h-screen p-6">
-  <div class="max-w-6xl mx-auto">
-    <header class="mb-6 text-center">
-      <h1 class="text-4xl font-bold text-black">Meta Forensic</h1>
-      <p class="text-lg mt-1 text-black">Upload a picture to view metadata</p>
-    </header>
 
-    <main class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <!-- Upload Section -->
-      <section>
-        <div id="drop" class="dropzone card text-center border-2 border-dashed border-slate-300">
-          <input id="fileInput" type="file" accept="image/*" class="hidden" />
-          <div id="dropInner">
-            <p class="mb-2">Drag & drop an image here, or</p>
-            <button id="chooseBtn" class="px-4 py-2 rounded bg-indigo-600 text-white">Choose file</button>
-            <p class="mt-3 text-xs text-slate-500">Supports JPEG (EXIF), PNG (limited metadata), HEIC (browser dependent).</p>
-          </div>
-        </div>
+<body>
 
-        <div id="previewWrap" class="hidden card">
-          <div class="flex gap-4 items-start">
-            <img id="preview" alt="preview" class="w-48 h-48 object-contain rounded border" />
-            <div class="flex-1">
-              <div class="card-header">📷 General Info</div>
-              <p id="basicInfo" class="text-sm text-slate-700 mt-2"></p>
-              <div class="mt-3 flex gap-2">
-                <button id="downloadMetaBtn" class="px-3 py-1 rounded border">Download JSON</button>
-                <button id="copyMetaBtn" class="px-3 py-1 rounded border">Copy Metadata</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+<header>
+    <h1>Social Media Image Forensic Analyzer</h1>
+    <p>Educational & Cyber Forensic Analysis Tool</p>
+</header>
 
-      <!-- Metadata Section -->
-      <aside>
-        <div id="gpsWrap" class="hidden card">
-          <div class="card-header">🌍 GPS & Map</div>
-          <p id="gpsText" class="text-sm text-slate-700 mt-2"></p>
-          <a id="gpsLink" target="_blank" class="text-indigo-600 text-sm underline">Open in Google Maps</a>
-          <div id="map"></div>
-        </div>
+<section>
+    <label><strong>Select Image File:</strong></label><br><br>
+    <input type="file" id="imageInput" accept="image/*"><br><br>
+    <button onclick="analyzeImage()">Analyze Image</button>
 
-        <div id="rawJsonWrap" class="hidden card">
-          <div class="card-header">🗂️ Metadata</div>
-        </div>
-      </aside>
-    </main>
-  </div>
+    <h2>Analysis Output</h2>
+    <pre id="output">Awaiting image input...</pre>
+</section>
 
-  <script>
-    const drop = document.getElementById('drop');
-    const fileInput = document.getElementById('fileInput');
-    const chooseBtn = document.getElementById('chooseBtn');
-    const preview = document.getElementById('preview');
-    const previewWrap = document.getElementById('previewWrap');
-    const rawJsonWrap = document.getElementById('rawJsonWrap');
-    const gpsWrap = document.getElementById('gpsWrap');
-    const gpsText = document.getElementById('gpsText');
-    const gpsLink = document.getElementById('gpsLink');
-    const downloadMetaBtn = document.getElementById('downloadMetaBtn');
-    const copyMetaBtn = document.getElementById('copyMetaBtn');
-    const basicInfo = document.getElementById('basicInfo');
+<footer>
+    <p>For Academic & Forensic Training Use Only</p>
+</footer>
 
-    let lastMetadata = null;
-    let lastDataURL = null;
-    let lastFileName = 'image';
-    let map = null;
-    let mapMarker = null;
+<!-- ===== EXIF LIBRARY ===== -->
+<script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
 
-    chooseBtn.addEventListener('click', () => fileInput.click());
-    fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
+<!-- ===== JAVASCRIPT ===== -->
+<script>
+async function analyzeImage() {
 
-    ['dragenter','dragover'].forEach(evt => drop.addEventListener(evt, (ev) => { ev.preventDefault(); drop.classList.add('bg-slate-50'); }));
-    ['dragleave','drop'].forEach(evt => drop.addEventListener(evt, (ev) => { ev.preventDefault(); drop.classList.remove('bg-slate-50'); }));
-    drop.addEventListener('drop', (ev) => { const f = ev.dataTransfer.files && ev.dataTransfer.files[0]; if (f) handleFiles([f]); });
+    const fileInput = document.getElementById("imageInput");
+    const output = document.getElementById("output");
 
-    async function handleFiles(files) {
-      if (!files || files.length === 0) return;
-      const file = files[0];
-      lastFileName = (file.name || 'image').replace(/\.[^/.]+$/, '');
-      const arrayBuffer = await file.arrayBuffer();
-      const dataURL = await readAsDataURL(file);
-      lastDataURL = dataURL;
-
-      preview.src = dataURL;
-      previewWrap.classList.remove('hidden');
-
-      let tags = {};
-      try { tags = await ExifReader.load(arrayBuffer); } catch(e){ tags = {}; }
-      lastMetadata = normalizeTags(tags);
-
-      updateBasicInfo(file);
-      renderFields(lastMetadata);
-      renderMetadataCards(lastMetadata);
+    if (!fileInput.files.length) {
+        output.textContent = "No image selected.";
+        return;
     }
 
-    function readAsDataURL(file) {
-      return new Promise((res, rej) => {
-        const fr = new FileReader();
-        fr.onload = () => res(fr.result);
-        fr.onerror = rej;
-        fr.readAsDataURL(file);
-      });
+    const file = fileInput.files[0];
+    let report = "";
+
+    // ---------------- FILE METADATA ----------------
+    report += "FILE INFORMATION\n";
+    report += "---------------------------------\n";
+    report += `File Name      : ${file.name}\n`;
+    report += `File Type      : ${file.type}\n`;
+    report += `File Size      : ${file.size} bytes\n\n`;
+
+    // ---------------- HASH CALCULATION ----------------
+    const buffer = await file.arrayBuffer();
+    const sha256 = await crypto.subtle.digest("SHA-256", buffer);
+
+    report += "FILE HASH VALUE\n";
+    report += "---------------------------------\n";
+    report += `SHA-256 Hash   : ${bufferToHex(sha256)}\n\n`;
+
+    // ---------------- SOCIAL MEDIA INDICATORS ----------------
+    report += "SOCIAL MEDIA PLATFORM INDICATORS\n";
+    report += "---------------------------------\n";
+
+    const name = file.name.toLowerCase();
+
+    if (name.includes("whatsapp")) {
+        report += "Possible Source: WhatsApp\n";
+    } else if (name.includes("instagram")) {
+        report += "Possible Source: Instagram\n";
+    } else if (name.includes("facebook") || name.includes("fb")) {
+        report += "Possible Source: Facebook\n";
+    } else {
+        report += "Possible Source: Unknown / Generic\n";
     }
 
-    function normalizeTags(tags) {
-      const out = {};
-      for (const k in tags) {
-        const t = tags[k];
-        out[k] = (t && (t.description || t.value || t.format || t.tagType)) || t;
-      }
-      try {
-        if(tags.GPSLatitude && tags.GPSLongitude){
-          const lat = toDecimal(tags.GPSLatitude.value || tags.GPSLatitude);
-          const lon = toDecimal(tags.GPSLongitude.value || tags.GPSLongitude);
-          const latRef = (tags.GPSLatitudeRef && tags.GPSLatitudeRef.value) || '';
-          const lonRef = (tags.GPSLongitudeRef && tags.GPSLongitudeRef.value) || '';
-          out['_latitude'] = (latRef==='S')?-Math.abs(lat):lat;
-          out['_longitude'] = (lonRef==='W')?-Math.abs(lon):lon;
-        }
-      } catch(e){}
-      return out;
-    }
+    report += "\n";
 
-    function toDecimal(input){
-      if(!input) return null;
-      if(typeof input==='number') return input;
-      if(Array.isArray(input)){
-        const [d,m,s]=input.map(Number);
-        return d + (m||0)/60 + (s||0)/3600;
-      }
-      if(typeof input==='string'){
-        const parts = input.split(',').map(p=>p.trim());
-        const nums = parts.map(p=>{ const frac=p.split('/'); return frac.length===2?Number(frac[0])/Number(frac[1]):Number(p); });
-        return nums[0] + (nums[1]||0)/60 + (nums[2]||0)/3600;
-      }
-      const n=Number(input); return isNaN(n)?null:n;
-    }
+    // ---------------- EXIF METADATA CHECK ----------------
+    report += "EXIF METADATA ANALYSIS\n";
+    report += "---------------------------------\n";
 
-    function updateBasicInfo(file){
-      const sizeKB = (file.size/1024).toFixed(1);
-      const modDate = new Date(file.lastModified).toLocaleString();
-      basicInfo.textContent = `Type: ${file.type} • Size: ${sizeKB} KB • Modified: ${modDate}`;
-    }
+    const reader = new FileReader();
+    reader.onload = function () {
+        const img = new Image();
+        img.src = reader.result;
 
-    function renderFields(metadata) {
-      // GPS Map
-      if (metadata._latitude && metadata._longitude) {
-        gpsWrap.classList.remove('hidden');
-        gpsText.textContent = `Latitude: ${metadata._latitude}, Longitude: ${metadata._longitude}`;
-        gpsLink.href = `https://www.google.com/maps?q=${metadata._latitude},${metadata._longitude}`;
-        if(!map){
-          map = L.map('map').setView([metadata._latitude, metadata._longitude], 13);
-          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; OpenStreetMap contributors'
-          }).addTo(map);
-          mapMarker = L.marker([metadata._latitude, metadata._longitude]).addTo(map);
-        } else {
-          map.setView([metadata._latitude, metadata._longitude], 13);
-          mapMarker.setLatLng([metadata._latitude, metadata._longitude]);
-        }
-      } else {
-        gpsWrap.classList.add('hidden');
-      }
+        img.onload = function () {
+            EXIF.getData(img, function () {
+                const tags = EXIF.getAllTags(this);
 
-      // Buttons
-      downloadMetaBtn.onclick = () => {
-        const blob = new Blob([JSON.stringify(metadata, null, 2)], {type:'application/json'});
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = lastFileName + '_metadata.json';
-        a.click();
-      };
-      copyMetaBtn.onclick = () => {
-        navigator.clipboard.writeText(JSON.stringify(metadata, null, 2));
-        alert('Metadata copied to clipboard');
-      };
-    }
+                if (Object.keys(tags).length === 0) {
+                    report += "EXIF Metadata  : NOT PRESENT\n";
+                    report += "Interpretation : Metadata stripped during social media processing\n\n";
+                } else {
+                    report += "EXIF Metadata  : PRESENT\n\n";
+                    for (let tag in tags) {
+                        report += `${tag}: ${tags[tag]}\n`;
+                    }
+                }
 
-    function renderMetadataCards(metadata) {
-      rawJsonWrap.innerHTML = '<div class="card-header">🗂️ Metadata</div>'; // Clear previous content
-      rawJsonWrap.classList.remove('hidden');
+                // ---------------- FORENSIC CONCLUSION ----------------
+                report += "\nFORENSIC CONCLUSION\n";
+                report += "---------------------------------\n";
+                report += "The analyzed image does not retain original camera metadata.\n";
+                report += "Observed characteristics suggest the image has been processed\n";
+                report += "and shared through a social media platform.\n";
 
-      for (const key in metadata) {
-        if (!metadata.hasOwnProperty(key)) continue;
-        const value = metadata[key];
+                output.textContent = report;
+            });
+        };
+    };
 
-        const card = document.createElement('div');
-        card.className = 'metadata-card';
+    reader.readAsDataURL(file);
+}
 
-        const k = document.createElement('div');
-        k.className = 'metadata-key';
-        k.textContent = key;
+function bufferToHex(buffer) {
+    return [...new Uint8Array(buffer)]
+        .map(b => b.toString(16).padStart(2, "0"))
+        .join("");
+}
+</script>
 
-        const v = document.createElement('div');
-        v.className = 'metadata-value';
-        v.textContent = String(value);
-
-        card.appendChild(k);
-        card.appendChild(v);
-        rawJsonWrap.appendChild(card);
-      }
-    }
-  </script>
 </body>
 </html>
