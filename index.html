@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Social Media Image Forensic Analyzer</title>
+<title>METAFORENSIC | Social Media Image Forensic Analyzer</title>
 
 <!-- ===== FORMAL CSS ===== -->
 <style>
@@ -59,8 +59,8 @@ footer {
 <body>
 
 <header>
-    <h1>Social Media Image Forensic Analyzer</h1>
-    <p>Educational & Cyber Forensic Analysis Tool</p>
+    <h1>METAFORENSIC</h1>
+    <p>Social Media Image Forensic Analyzer</p>
 </header>
 
 <section>
@@ -73,7 +73,7 @@ footer {
 </section>
 
 <footer>
-    <p>For Academic & Forensic Training Use Only</p>
+    <p>METAFORENSIC – For Academic & Forensic Training Use Only</p>
 </footer>
 
 <!-- ===== EXIF LIBRARY ===== -->
@@ -95,7 +95,7 @@ async function analyzeImage() {
     let report = "";
 
     // ---------------- FILE METADATA ----------------
-    report += "FILE INFORMATION\n";
+    report += "METAFORENSIC – FILE INFORMATION\n";
     report += "---------------------------------\n";
     report += `File Name      : ${file.name}\n`;
     report += `File Type      : ${file.type}\n`;
@@ -151,11 +151,11 @@ async function analyzeImage() {
                 }
 
                 // ---------------- FORENSIC CONCLUSION ----------------
-                report += "\nFORENSIC CONCLUSION\n";
+                report += "\nMETAFORENSIC – FORENSIC CONCLUSION\n";
                 report += "---------------------------------\n";
                 report += "The analyzed image does not retain original camera metadata.\n";
-                report += "Observed characteristics suggest the image has been processed\n";
-                report += "and shared through a social media platform.\n";
+                report += "Observed characteristics indicate processing and redistribution\n";
+                report += "through a social media platform.\n";
 
                 output.textContent = report;
             });
