@@ -1,189 +1,52 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-<meta charset="UTF-8">
-<title>METAFORENSIC | Social Media Image Forensic Analyzer</title>
-
-<style>
-body {
-    font-family: "Segoe UI", Arial, sans-serif;
-    background-color: #f1f5f9;
-    margin: 0;
-    color: #0f172a;
-}
-
-header {
-    background-color: #020617;
-    color: #ffffff;
-    padding: 25px;
-    text-align: center;
-}
-
-section {
-    max-width: 900px;
-    margin: auto;
-    padding: 30px;
-}
-
-button {
-    padding: 10px 18px;
-    background-color: #1e3a8a;
-    color: white;
-    border: none;
-    cursor: pointer;
-}
-
-button:hover {
-    background-color: #1e40af;
-}
-
-pre {
-    background-color: #020617;
-    color: #22c55e;
-    padding: 20px;
-    font-size: 14px;
-    overflow-x: auto;
-}
-
-footer {
-    background-color: #020617;
-    color: white;
-    text-align: center;
-    padding: 12px;
-    margin-top: 40px;
-}
-</style>
+    <title>Digital Forensic Metadata Analyzer</title>
 </head>
-
 <body>
+    <h2>Digital Forensic Metadata Analyzer</h2>
 
-<header>
-    <h1>METAFORENSIC</h1>
-    <p>Social Media Image Forensic Analyzer</p>
-</header>
+    <form method="POST" enctype="multipart/form-data">
+        <p>Upload Original Image:</p>
+        <input type="file" name="original" required>
 
-<section>
-    <label><strong>Select Image File:</strong></label><br><br>
-    <input type="file" id="imageInput" accept="image/*"><br><br>
-    <button onclick="analyzeImage()">Analyze Image</button>
+        <p>Upload Edited Image:</p>
+        <input type="file" name="edited" required>
 
-    <h2>Analysis Output</h2>
-    <pre id="output">Awaiting image input...</pre>
-</section>
+        <br><br>
+        <button type="submit">Analyze & Generate Report</button>
+    </form>
 
-<footer>
-    <p>METAFORENSIC – For Academic & Forensic Training Use Only</p>
-</footer>
+    {% if result.hash_original %}
+        <h3>Original File Hash</h3>
+        <p>MD5: {{ result.hash_original[0] }}</p>
+        <p>SHA256: {{ result.hash_original[1] }}</p>
 
-<script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
+        <h3>Edited File Hash</h3>
+        <p>MD5: {{ result.hash_edited[0] }}</p>
+        <p>SHA256: {{ result.hash_edited[1] }}</p>
 
-<script>
-async function analyzeImage() {
+        <h3>Metadata Differences</h3>
+        <table border="1">
+            <tr>
+                <th>Tag</th>
+                <th>Original</th>
+                <th>Edited</th>
+            </tr>
+            {% for key, value in result.differences.items() %}
+            <tr>
+                <td>{{ key }}</td>
+                <td>{{ value.Original }}</td>
+                <td>{{ value.Edited }}</td>
+            </tr>
+            {% endfor %}
+        </table>
 
-    const fileInput = document.getElementById("imageInput");
-    const output = document.getElementById("output");
-
-    if (!fileInput.files.length) {
-        output.textContent = "No image selected.";
-        return;
-    }
-
-    const file = fileInput.files[0];
-    let report = "";
-
-    // ---------- FILE INFORMATION ----------
-    report += "METAFORENSIC – FILE INFORMATION\n";
-    report += "---------------------------------\n";
-    report += `File Name      : ${file.name}\n`;
-    report += `File Type      : ${file.type}\n`;
-    report += `File Size      : ${file.size} bytes\n\n`;
-
-    // ---------- HASH ----------
-    const buffer = await file.arrayBuffer();
-    const sha256 = await crypto.subtle.digest("SHA-256", buffer);
-
-    report += "FILE HASH VALUE\n";
-    report += "---------------------------------\n";
-    report += `SHA-256 Hash   : ${bufferToHex(sha256)}\n\n`;
-
-    // ---------- SOCIAL MEDIA INDICATORS ----------
-    report += "SOCIAL MEDIA PLATFORM INDICATORS\n";
-    report += "---------------------------------\n";
-
-    const name = file.name.toLowerCase();
-
-    if (name.includes("whatsapp")) {
-        report += "Possible Source: WhatsApp\n";
-    } else if (name.includes("instagram")) {
-        report += "Possible Source: Instagram\n";
-    } else if (name.includes("facebook") || name.includes("fb")) {
-        report += "Possible Source: Facebook\n";
-    } else {
-        report += "Possible Source: Unknown / Generic\n";
-    }
-
-    report += "\n";
-
-    // ---------- EXIF METADATA ----------
-    report += "EXIF METADATA ANALYSIS\n";
-    report += "---------------------------------\n";
-
-    const reader = new FileReader();
-    reader.onload = function () {
-        const img = new Image();
-        img.src = reader.result;
-
-        img.onload = function () {
-            EXIF.getData(img, function () {
-                const tags = EXIF.getAllTags(this);
-
-                if (Object.keys(tags).length === 0) {
-                    report += "EXIF Metadata  : NOT PRESENT\n";
-                    report += "Interpretation : Metadata stripped during social media processing\n\n";
-                } else {
-                    report += "EXIF Metadata  : PRESENT\n\n";
-                    for (let tag in tags) {
-                        report += `${tag}: ${tags[tag]}\n`;
-                    }
-                    report += "\n";
-                }
-
-                // ---------- PIXEL-LEVEL MANIPULATION (ELA – EXPLANATION) ----------
-                report += "PIXEL-LEVEL MANIPULATION ANALYSIS (ELA – CONCEPTUAL)\n";
-                report += "---------------------------------\n";
-                report += "Error Level Analysis (ELA) examines compression inconsistencies\n";
-                report += "at the pixel level to identify possible image alterations.\n";
-                report += "Such analysis requires content-based examination and cannot\n";
-                report += "be reliably performed using metadata alone.\n\n";
-
-                // ---------- FINAL FORENSIC CONCLUSION ----------
-                report += "METAFORENSIC – FORENSIC CONCLUSION\n";
-                report += "---------------------------------\n";
-                report += "1. The image does not retain original camera EXIF metadata.\n";
-                report += "2. Metadata stripping is consistent with social media processing.\n";
-                report += "3. Due to absence of original metadata, image authenticity\n";
-                report += "   and originality cannot be independently verified.\n";
-                report += "4. Metadata analysis alone is insufficient to confirm image\n";
-                report += "   manipulation or editing.\n";
-                report += "5. Pixel-level analysis (e.g., ELA) is required for reliable\n";
-                report += "   manipulation identification.\n";
-                report += "6. Therefore, image manipulation cannot be confirmed nor\n";
-                report += "   ruled out based solely on metadata examination.\n";
-
-                output.textContent = report;
-            });
-        };
-    };
-
-    reader.readAsDataURL(file);
-}
-
-function bufferToHex(buffer) {
-    return [...new Uint8Array(buffer)]
-        .map(b => b.toString(16).padStart(2, "0"))
-        .join("");
-}
-</script>
+        <br>
+        <a href="/download">
+            <button>Download PDF Report</button>
+        </a>
+    {% endif %}
 
 </body>
 </html>
