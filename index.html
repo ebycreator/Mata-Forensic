@@ -1,89 +1,52 @@
+<html lang="en">
+<head>
 <meta charset="UTF-8">
+<title>Social Media Image Forensic Analyzer</title>
 <title>METAFORENSIC | Social Media Image Forensic Analyzer</title>
 
 <!-- ===== FORMAL CSS ===== -->
 <style>
-body {
-font-family: "Segoe UI", Arial, sans-serif;
-@@ -76,10 +75,8 @@
-<p>METAFORENSIC – For Academic & Forensic Training Use Only</p>
+@@ -59,8 +59,8 @@
+<body>
+
+<header>
+    <h1>Social Media Image Forensic Analyzer</h1>
+    <p>Educational & Cyber Forensic Analysis Tool</p>
+    <h1>METAFORENSIC</h1>
+    <p>Social Media Image Forensic Analyzer</p>
+</header>
+
+<section>
+@@ -73,7 +73,7 @@
+</section>
+
+<footer>
+    <p>For Academic & Forensic Training Use Only</p>
+    <p>METAFORENSIC – For Academic & Forensic Training Use Only</p>
 </footer>
 
 <!-- ===== EXIF LIBRARY ===== -->
-<script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
-
-<!-- ===== JAVASCRIPT ===== -->
-<script>
-async function analyzeImage() {
-
-@@ -94,22 +91,22 @@
-const file = fileInput.files[0];
+@@ -95,7 +95,7 @@
 let report = "";
 
-    // ---------------- FILE METADATA ----------------
-    // ---------- FILE INFORMATION ----------
-report += "METAFORENSIC – FILE INFORMATION\n";
+// ---------------- FILE METADATA ----------------
+    report += "FILE INFORMATION\n";
+    report += "METAFORENSIC – FILE INFORMATION\n";
 report += "---------------------------------\n";
 report += `File Name      : ${file.name}\n`;
 report += `File Type      : ${file.type}\n`;
-report += `File Size      : ${file.size} bytes\n\n`;
-
-    // ---------------- HASH CALCULATION ----------------
-    // ---------- HASH ----------
-const buffer = await file.arrayBuffer();
-const sha256 = await crypto.subtle.digest("SHA-256", buffer);
-
-report += "FILE HASH VALUE\n";
-report += "---------------------------------\n";
-report += `SHA-256 Hash   : ${bufferToHex(sha256)}\n\n`;
-
-    // ---------------- SOCIAL MEDIA INDICATORS ----------------
-    // ---------- SOCIAL MEDIA INDICATORS ----------
-report += "SOCIAL MEDIA PLATFORM INDICATORS\n";
-report += "---------------------------------\n";
-
-@@ -127,7 +124,7 @@
-
-report += "\n";
-
-    // ---------------- EXIF METADATA CHECK ----------------
-    // ---------- EXIF METADATA ----------
-report += "EXIF METADATA ANALYSIS\n";
-report += "---------------------------------\n";
-
-@@ -148,29 +145,45 @@
-for (let tag in tags) {
-report += `${tag}: ${tags[tag]}\n`;
-}
-                    report += "\n";
+@@ -151,26 +151,26 @@
 }
 
-                // ---------------- FORENSIC CONCLUSION ----------------
+// ---------------- FORENSIC CONCLUSION ----------------
+                report += "\nFORENSIC CONCLUSION\n";
                 report += "\nMETAFORENSIC – FORENSIC CONCLUSION\n";
-                // ---------- PIXEL-LEVEL MANIPULATION (ELA – EXPLANATION) ----------
-                report += "PIXEL-LEVEL MANIPULATION ANALYSIS (ELA – CONCEPTUAL)\n";
 report += "---------------------------------\n";
-                report += "The analyzed image does not retain original camera metadata.\n";
+report += "The analyzed image does not retain original camera metadata.\n";
+                report += "Observed characteristics suggest the image has been processed\n";
+                report += "and shared through a social media platform.\n";
                 report += "Observed characteristics indicate processing and redistribution\n";
                 report += "through a social media platform.\n";
-                report += "Error Level Analysis (ELA) examines compression inconsistencies\n";
-                report += "at the pixel level to identify possible image alterations.\n";
-                report += "Such analysis requires content-based examination and cannot\n";
-                report += "be reliably performed using metadata alone.\n\n";
-
-                // ---------- FINAL FORENSIC CONCLUSION ----------
-                report += "METAFORENSIC – FORENSIC CONCLUSION\n";
-                report += "---------------------------------\n";
-                report += "1. The image does not retain original camera EXIF metadata.\n";
-                report += "2. Metadata stripping is consistent with social media processing.\n";
-                report += "3. Due to absence of original metadata, image authenticity\n";
-                report += "   and originality cannot be independently verified.\n";
-                report += "4. Metadata analysis alone is insufficient to confirm image\n";
-                report += "   manipulation or editing.\n";
-                report += "5. Pixel-level analysis (e.g., ELA) is required for reliable\n";
-                report += "   manipulation identification.\n";
-                report += "6. Therefore, image manipulation cannot be confirmed nor\n";
-                report += "   ruled out based solely on metadata examination.\n";
 
 output.textContent = report;
 });
