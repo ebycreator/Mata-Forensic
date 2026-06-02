@@ -1,67 +1,376 @@
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Social Media Image Forensic Analyzer</title>
-<title>METAFORENSIC | Social Media Image Forensic Analyzer</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<!-- ===== FORMAL CSS ===== -->
+<title>META FORENSIC | Digital Image Metadata Analyzer</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
+
 <style>
-@@ -59,8 +59,8 @@
+
+:root{
+--bg:#060d1b;
+--card:#101826;
+--accent:#12f0d0;
+--accent2:#1a73e8;
+--text:#ffffff;
+--muted:#a7b1c2;
+}
+
+*{
+margin:0;
+padding:0;
+box-sizing:border-box;
+}
+
+body{
+background:var(--bg);
+color:var(--text);
+font-family:'Rajdhani',sans-serif;
+line-height:1.6;
+}
+
+.container{
+width:90%;
+max-width:1200px;
+margin:auto;
+}
+
+header{
+min-height:100vh;
+display:flex;
+align-items:center;
+justify-content:center;
+text-align:center;
+background:
+linear-gradient(rgba(6,13,27,.9),rgba(6,13,27,.95));
+}
+
+.hero h1{
+font-family:'Orbitron',sans-serif;
+font-size:4rem;
+color:var(--accent);
+margin-bottom:20px;
+}
+
+.hero p{
+font-size:1.5rem;
+color:#dbe5f4;
+margin-bottom:15px;
+}
+
+.tagline{
+font-size:1.2rem;
+color:var(--muted);
+margin-bottom:35px;
+}
+
+.btn{
+display:inline-block;
+padding:15px 35px;
+border-radius:50px;
+text-decoration:none;
+font-weight:700;
+font-size:1.1rem;
+background:linear-gradient(90deg,var(--accent),#19d6ff);
+color:#000;
+transition:.3s;
+}
+
+.btn:hover{
+transform:translateY(-3px);
+}
+
+section{
+padding:80px 0;
+}
+
+.section-title{
+text-align:center;
+font-family:'Orbitron',sans-serif;
+color:var(--accent);
+font-size:2.2rem;
+margin-bottom:40px;
+}
+
+.about{
+text-align:center;
+max-width:900px;
+margin:auto;
+font-size:1.2rem;
+color:#d3dce8;
+}
+
+.features{
+display:grid;
+grid-template-columns:repeat(auto-fit,minmax(250px,1fr));
+gap:25px;
+margin-top:40px;
+}
+
+.feature{
+background:var(--card);
+padding:25px;
+border-radius:15px;
+border:1px solid rgba(18,240,208,.2);
+}
+
+.feature h3{
+color:var(--accent);
+margin-bottom:10px;
+font-size:1.4rem;
+}
+
+.gallery{
+display:grid;
+grid-template-columns:repeat(auto-fit,minmax(250px,1fr));
+gap:25px;
+}
+
+.gallery img{
+width:100%;
+border-radius:20px;
+border:2px solid var(--accent);
+box-shadow:0 0 20px rgba(18,240,208,.2);
+}
+
+.screenshot-card{
+text-align:center;
+}
+
+.screenshot-card h3{
+margin-top:15px;
+color:var(--accent);
+}
+
+.download{
+text-align:center;
+background:var(--card);
+border-radius:20px;
+padding:50px 20px;
+}
+
+.download p{
+margin:20px 0;
+font-size:1.2rem;
+}
+
+footer{
+padding:30px;
+text-align:center;
+border-top:1px solid rgba(255,255,255,.1);
+color:var(--muted);
+}
+
+@media(max-width:768px){
+
+.hero h1{
+font-size:2.5rem;
+}
+
+.hero p{
+font-size:1.1rem;
+}
+
+}
+
+</style>
+</head>
 <body>
 
 <header>
-    <h1>Social Media Image Forensic Analyzer</h1>
-    <p>Educational & Cyber Forensic Analysis Tool</p>
-    <h1>METAFORENSIC</h1>
-    <p>Social Media Image Forensic Analyzer</p>
+<div class="hero container">
+
+<h1>META FORENSIC</h1>
+
+<p>Digital Image Metadata & Evidence Analysis Tool</p>
+
+<div class="tagline">
+Extract • Verify • Analyze • Report
+</div>
+
+<a href="META_FORENSIC.apk" class="btn">
+DOWNLOAD APK
+</a>
+
+</div>
 </header>
 
 <section>
-@@ -73,7 +73,7 @@
+<div class="container">
+
+<h2 class="section-title">About META FORENSIC</h2>
+
+<p class="about">
+META FORENSIC is an Android-based Digital Forensics application
+designed to extract and analyze metadata from image files.
+The application generates cryptographic hashes, extracts EXIF
+metadata, identifies device information, retrieves GPS data,
+and creates downloadable forensic reports for investigations
+and evidence documentation.
+</p>
+
+</div>
+</section>
+
+<section>
+<div class="container">
+
+<h2 class="section-title">Key Features</h2>
+
+<div class="features">
+
+<div class="feature">
+<h3>MD5 Hash Analysis</h3>
+<p>Generate MD5 hashes for integrity verification.</p>
+</div>
+
+<div class="feature">
+<h3>SHA-256 Verification</h3>
+<p>Strong cryptographic evidence validation.</p>
+</div>
+
+<div class="feature">
+<h3>EXIF Metadata</h3>
+<p>Extract camera and image acquisition details.</p>
+</div>
+
+<div class="feature">
+<h3>GPS Location Data</h3>
+<p>Retrieve embedded location coordinates.</p>
+</div>
+
+<div class="feature">
+<h3>Evidence Preview</h3>
+<p>View uploaded evidence before processing.</p>
+</div>
+
+<div class="feature">
+<h3>Forensic Reports</h3>
+<p>Download detailed investigation reports.</p>
+</div>
+
+</div>
+
+</div>
+</section>
+
+<section>
+<div class="container">
+
+<h2 class="section-title">Application Screenshots</h2>
+
+<div class="gallery">
+
+<div class="screenshot-card">
+<img src="welcome.jpg" alt="Welcome Screen">
+<h3>Welcome & Registration</h3>
+</div>
+
+<div class="screenshot-card">
+<img src="verify.jpg" alt="Verification Screen">
+<h3>Age Verification</h3>
+</div>
+
+<div class="screenshot-card">
+<img src="upload.jpg" alt="Upload Screen">
+<h3>Upload Evidence Image</h3>
+</div>
+
+<div class="screenshot-card">
+<img src="report.jpg" alt="Report Screen">
+<h3>Metadata Analysis Report</h3>
+</div>
+
+</div>
+
+</div>
+</section>
+
+<section>
+<div class="container">
+
+<h2 class="section-title">Metadata Extracted</h2>
+
+<div class="features">
+
+<div class="feature">
+<h3>File Information</h3>
+<p>
+File name, size, dimensions, created date,
+modified date and image properties.
+</p>
+</div>
+
+<div class="feature">
+<h3>Camera Information</h3>
+<p>
+Camera make, model, software used,
+ISO, exposure time and focal length.
+</p>
+</div>
+
+<div class="feature">
+<h3>GPS Information</h3>
+<p>
+Latitude, longitude, altitude and
+location availability analysis.
+</p>
+</div>
+
+<div class="feature">
+<h3>Evidence Integrity</h3>
+<p>
+MD5 and SHA-256 cryptographic
+hash generation.
+</p>
+</div>
+
+</div>
+
+</div>
+</section>
+
+<section>
+<div class="container">
+
+<div class="download">
+
+<h2 class="section-title">Download META FORENSIC</h2>
+
+<p>
+Start analyzing image metadata and digital evidence
+directly from your Android device.
+</p>
+
+<a href="META_FORENSIC.apk" class="btn">
+DOWNLOAD APK
+</a>
+
+</div>
+
+</div>
 </section>
 
 <footer>
-    <p>For Academic & Forensic Training Use Only</p>
-    <p>METAFORENSIC – For Academic & Forensic Training Use Only</p>
+
+<h3 style="color:#12f0d0;">META FORENSIC</h3>
+
+<p>
+Digital Image Metadata & Evidence Analysis Tool
+</p>
+
+<p>
+Version 1.0 | Android 8.0+
+</p>
+
+<p>
+© 2026 META FORENSIC. All Rights Reserved.
+</p>
+
 </footer>
-
-<!-- ===== EXIF LIBRARY ===== -->
-@@ -95,7 +95,7 @@
-let report = "";
-
-// ---------------- FILE METADATA ----------------
-    report += "FILE INFORMATION\n";
-    report += "METAFORENSIC – FILE INFORMATION\n";
-report += "---------------------------------\n";
-report += `File Name      : ${file.name}\n`;
-report += `File Type      : ${file.type}\n`;
-@@ -151,26 +151,26 @@
-}
-
-// ---------------- FORENSIC CONCLUSION ----------------
-                report += "\nFORENSIC CONCLUSION\n";
-                report += "\nMETAFORENSIC – FORENSIC CONCLUSION\n";
-report += "---------------------------------\n";
-report += "The analyzed image does not retain original camera metadata.\n";
-                report += "Observed characteristics suggest the image has been processed\n";
-                report += "and shared through a social media platform.\n";
-                report += "Observed characteristics indicate processing and redistribution\n";
-                report += "through a social media platform.\n";
-
-output.textContent = report;
-});
-};
-};
-
-reader.readAsDataURL(file);
-}
-
-function bufferToHex(buffer) {
-return [...new Uint8Array(buffer)]
-.map(b => b.toString(16).padStart(2, "0"))
-.join("");
-}
-</script>
 
 </body>
 </html>
